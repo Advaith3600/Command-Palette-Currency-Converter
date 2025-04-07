@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "CurrencyConverterExtension (Package)": {
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": true
+    },
+    "CurrencyConverterExtension (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
