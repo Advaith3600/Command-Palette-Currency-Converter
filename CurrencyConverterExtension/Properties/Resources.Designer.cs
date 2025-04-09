@@ -61,6 +61,177 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Conversion API Key.
+        /// </summary>
+        internal static string api_key {
+            get {
+                return ResourceManager.GetString("api_key", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to (Optional) Provide the API key for the service if necessary.
+        /// </summary>
+        internal static string api_key_description {
+            get {
+                return ResourceManager.GetString("api_key_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Conversion Cache duration.
+        /// </summary>
+        internal static string cache_duration {
+            get {
+                return ResourceManager.GetString("cache_duration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Duration should be mentioned in hours. Min: 0.5, Max: 24.
+        /// </summary>
+        internal static string cache_duration_description {
+            get {
+                return ResourceManager.GetString("cache_duration_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Conversion API.
+        /// </summary>
+        internal static string conversion_api {
+            get {
+                return ResourceManager.GetString("conversion_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use &apos;Default&apos; if you are not sure which one to use. Be sure to read the plugin&apos;s readme file on GitHub if you plan to change this option to avoid any side effects..
+        /// </summary>
+        internal static string conversion_api_description {
+            get {
+                return ResourceManager.GetString("conversion_api_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quick Conversion Direction.
+        /// </summary>
+        internal static string conversion_direction {
+            get {
+                return ResourceManager.GetString("conversion_direction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set the sort order for the quick conversion output.
+        /// </summary>
+        internal static string conversion_direction_description {
+            get {
+                return ResourceManager.GetString("conversion_direction_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quick Conversion Currencies.
+        /// </summary>
+        internal static string currencies {
+            get {
+                return ResourceManager.GetString("currencies", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add currencies comma separated. eg: USD, EUR, BTC.
+        /// </summary>
+        internal static string currencies_description {
+            get {
+                return ResourceManager.GetString("currencies_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to CurrencyAPI.
+        /// </summary>
+        internal static string currency_api {
+            get {
+                return ResourceManager.GetString("currency_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Decimal format separator.
+        /// </summary>
+        internal static string decimal_separator {
+            get {
+                return ResourceManager.GetString("decimal_separator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Change between dots and commas for decimal separation.
+        /// </summary>
+        internal static string decimal_separator_description {
+            get {
+                return ResourceManager.GetString("decimal_separator_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Default API.
+        /// </summary>
+        internal static string default_api {
+            get {
+                return ResourceManager.GetString("default_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ExchangeRateAPI.
+        /// </summary>
+        internal static string exchange_rate_api {
+            get {
+                return ResourceManager.GetString("exchange_rate_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quick Conversion Local Currency.
+        /// </summary>
+        internal static string local_currency {
+            get {
+                return ResourceManager.GetString("local_currency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set your local currency for quick conversion.
+        /// </summary>
+        internal static string local_currency_description {
+            get {
+                return ResourceManager.GetString("local_currency_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Local currency to other currencies.
+        /// </summary>
+        internal static string local_to_other {
+            get {
+                return ResourceManager.GetString("local_to_other", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Other currencies to local currency.
+        /// </summary>
+        internal static string other_to_local {
+            get {
+                return ResourceManager.GetString("other_to_local", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Conversion Output Style.
         /// </summary>
         internal static string output_style {
@@ -93,6 +264,33 @@ namespace CurrencyConverterExtension.Properties {
         internal static string output_style_short_text {
             get {
                 return ResourceManager.GetString("output_style_short_text", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Always use commas for decimals.
+        /// </summary>
+        internal static string use_commas {
+            get {
+                return ResourceManager.GetString("use_commas", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Always use dots for decimals.
+        /// </summary>
+        internal static string use_dots {
+            get {
+                return ResourceManager.GetString("use_dots", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use system default.
+        /// </summary>
+        internal static string use_system_default {
+            get {
+                return ResourceManager.GetString("use_system_default", resourceCulture);
             }
         }
     }

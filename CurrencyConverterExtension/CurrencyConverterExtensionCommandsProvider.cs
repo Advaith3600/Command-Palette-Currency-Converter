@@ -20,7 +20,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         Settings = _settingsManager.Settings;
         string Subtitle = "Convert real and crypto currencies.";
         _commands = [
-            new CommandItem(new CurrencyConverterExtensionPage()) { Title = DisplayName, Icon = Icon, Subtitle = Subtitle },
+            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager)) { Title = DisplayName, Icon = Icon, Subtitle = Subtitle },
         ];
     }
 

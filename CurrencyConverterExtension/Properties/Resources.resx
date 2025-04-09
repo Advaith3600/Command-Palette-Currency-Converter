@@ -117,6 +117,63 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="api_key" xml:space="preserve">
+    <value>Conversion API Key</value>
+  </data>
+  <data name="api_key_description" xml:space="preserve">
+    <value>(Optional) Provide the API key for the service if necessary</value>
+  </data>
+  <data name="cache_duration" xml:space="preserve">
+    <value>Conversion Cache duration</value>
+  </data>
+  <data name="cache_duration_description" xml:space="preserve">
+    <value>Duration should be mentioned in hours. Min: 0.5, Max: 24</value>
+  </data>
+  <data name="conversion_api" xml:space="preserve">
+    <value>Conversion API</value>
+  </data>
+  <data name="conversion_api_description" xml:space="preserve">
+    <value>Use 'Default' if you are not sure which one to use. Be sure to read the plugin's readme file on GitHub if you plan to change this option to avoid any side effects.</value>
+  </data>
+  <data name="conversion_direction" xml:space="preserve">
+    <value>Quick Conversion Direction</value>
+  </data>
+  <data name="conversion_direction_description" xml:space="preserve">
+    <value>Set the sort order for the quick conversion output</value>
+  </data>
+  <data name="currencies" xml:space="preserve">
+    <value>Quick Conversion Currencies</value>
+  </data>
+  <data name="currencies_description" xml:space="preserve">
+    <value>Add currencies comma separated. eg: USD, EUR, BTC</value>
+  </data>
+  <data name="currency_api" xml:space="preserve">
+    <value>CurrencyAPI</value>
+  </data>
+  <data name="decimal_separator" xml:space="preserve">
+    <value>Decimal format separator</value>
+  </data>
+  <data name="decimal_separator_description" xml:space="preserve">
+    <value>Change between dots and commas for decimal separation</value>
+  </data>
+  <data name="default_api" xml:space="preserve">
+    <value>Default API</value>
+  </data>
+  <data name="exchange_rate_api" xml:space="preserve">
+    <value>ExchangeRateAPI</value>
+  </data>
+  <data name="local_currency" xml:space="preserve">
+    <value>Quick Conversion Local Currency</value>
+  </data>
+  <data name="local_currency_description" xml:space="preserve">
+    <value>Set your local currency for quick conversion</value>
+  </data>
+  <data name="local_to_other" xml:space="preserve">
+    <value>Local currency to other currencies</value>
+  </data>
+  <data name="other_to_local" xml:space="preserve">
+    <value>Other currencies to local currency</value>
+  </data>
   <data name="output_style" xml:space="preserve">
     <value>Conversion Output Style</value>
   </data>
@@ -128,5 +185,14 @@
   </data>
   <data name="output_style_short_text" xml:space="preserve">
     <value>Short Text</value>
+  </data>
+  <data name="use_commas" xml:space="preserve">
+    <value>Always use commas for decimals</value>
+  </data>
+  <data name="use_dots" xml:space="preserve">
+    <value>Always use dots for decimals</value>
+  </data>
+  <data name="use_system_default" xml:space="preserve">
+    <value>Use system default</value>
   </data>
 </root>
