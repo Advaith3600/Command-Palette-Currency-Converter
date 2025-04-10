@@ -88,4 +88,10 @@
   <ItemGroup>
     <PRIResource Remove="Commands\**" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="Assets\LargeTile.scale-100.png" />
+    <Content Remove="Assets\SmallTile.scale-100.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-100.png" />
+  </ItemGroup>
 </Project>

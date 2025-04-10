@@ -16,7 +16,7 @@
        Publisher= to match your own identity -->
 
   <Properties>
-    <DisplayName>Currency Converter</DisplayName>
+    <DisplayName>Currency Converter for Command Palette</DisplayName>
     <PublisherDisplayName>Advaith A J</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
