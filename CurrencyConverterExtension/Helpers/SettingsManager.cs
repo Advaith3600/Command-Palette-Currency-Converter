@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using CurrencyConverterExtension.Converter;
@@ -50,14 +51,13 @@ namespace CurrencyConverterExtension.Helpers
             Namespaced(nameof(LocalCurrency)),
             Resources.local_currency,
             Resources.local_currency_description,
-            "")
-        { Value = "" };
+            new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol);
 
         private readonly TextSetting _currencies = new(
             Namespaced(nameof(Currencies)),
             Resources.currencies,
             Resources.currencies_description,
-            "");
+            "USD");
 
         private readonly TextSetting _conversionCacheDuration = new(
             Namespaced(nameof(ConversionCacheDuration)),

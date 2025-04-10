@@ -4,7 +4,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Globalization;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using CurrencyConverterExtension.Helpers;
@@ -25,7 +27,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         Icon = IconManager.Icon;
         Title = "Currency Converter";
-        Name = "Open";
+        Name = "Convert";
 
         _settings = settings;
         _converter = new(_settings);
@@ -129,7 +131,30 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     public override void UpdateSearchText(string oldSearch, string newSearch)
     {
         if (oldSearch != newSearch)
-            RaiseItemsChanged();
+        {
+            DebounceSearch(newSearch);
+        }
+    }
+
+    private CancellationTokenSource? _debounceCts;
+
+    private void DebounceSearch(string newSearch)
+    {
+        // Cancel any ongoing debounce task
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+
+        var token = _debounceCts.Token;
+
+        Task.Delay(300, token) // 300ms debounce delay
+            .ContinueWith(t =>
+            {
+                if (!t.IsCanceled)
+                {
+                    // Trigger the items update after debounce delay
+                    RaiseItemsChanged();
+                }
+            }, TaskScheduler.Default);
     }
 
     public void Dispose()
