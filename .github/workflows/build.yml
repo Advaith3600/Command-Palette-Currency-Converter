@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [x64, ARM64]
+
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Setup msbuild.exe
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Get version
+      run: |
+        $tag = '${{github.ref}}'
+        $version = $tag
+        echo "VERSION=$version" >> $env:GITHUB_ENV
+
+    - name: Set version
+      run: |
+        [Reflection.Assembly]::LoadWithPartialName("System.Xml.Linq")
+        $xIdentity = [System.Xml.Linq.XName]::Get("{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Identity");
+        $appxmanifests = Get-ChildItem -Path CurrencyConverterExtension -Filter *.appxmanifest -Recurse
+        foreach ($appxmanifestPath in $appxmanifests) {
+          $appxmanifest = [System.Xml.Linq.XDocument]::Load($appxmanifestPath)
+          $appxmanifest.Root.Element($xIdentity).Attribute("Version").Value = "${{env.VERSION}}.0"
+          $appxmanifest.Save($appxmanifestPath)
+        }
+
+    - name: Restore packages
+      run: msbuild CurrencyConverterExtension.sln /t:Restore /p:Configuration=Release
+
+    - name: Build Currency Converter
+      if: startsWith(github.ref, 'refs/tags/vs-') || startsWith(github.ref, 'refs/heads/')
+      run: msbuild CurrencyConverterExtension\CurrencyConverterExtension.csproj /p:Configuration=Release /p:Platform=${{matrix.platform}} /p:Version=${{env.VERSION}}
+
+    - name: Prepare artifact
+      run: |
+        New-Item -Type Directory build
+        Get-ChildItem -Path src -Recurse -Include *.msix | Where-Object { $_.FullName -notmatch "\\Dependencies\\" } | ForEach-Object {
+          Copy-Item -Path $_.FullName -Destination build
+        }
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CurrencyConverter-${{env.VERSION}}-${{matrix.platform}}
+        path: build\*.msix
