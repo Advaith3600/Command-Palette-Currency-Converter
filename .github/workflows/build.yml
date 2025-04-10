@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
+      - '*'
 
 jobs:
   build:
@@ -28,7 +29,7 @@ jobs:
     - name: Get version
       run: |
         $tag = '${{github.ref}}'
-        $version = $tag
+        $version = $tag -replace 'refs/tags/', ''
         echo "VERSION=$version" >> $env:GITHUB_ENV
 
     - name: Set version
@@ -46,13 +47,12 @@ jobs:
       run: msbuild CurrencyConverterExtension.sln /t:Restore /p:Configuration=Release
 
     - name: Build Currency Converter
-      if: startsWith(github.ref, 'refs/tags/vs-') || startsWith(github.ref, 'refs/heads/')
       run: msbuild CurrencyConverterExtension\CurrencyConverterExtension.csproj /p:Configuration=Release /p:Platform=${{matrix.platform}} /p:Version=${{env.VERSION}}
 
     - name: Prepare artifact
       run: |
         New-Item -Type Directory build
-        Get-ChildItem -Path src -Recurse -Include *.msix | Where-Object { $_.FullName -notmatch "\\Dependencies\\" } | ForEach-Object {
+        Get-ChildItem -Path CurrencyConverterExtension -Recurse -Include *.msix | Where-Object { $_.FullName -notmatch "\\Dependencies\\" } | ForEach-Object {
           Copy-Item -Path $_.FullName -Destination build
         }
 
