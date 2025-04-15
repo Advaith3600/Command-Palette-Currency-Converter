@@ -1,4 +1,4 @@
-PackageIdentifier: advaith.CurrencyConverterforCommandPalette
+PackageIdentifier: advaith.CurrencyConverterCommandPalette
 PackageVersion: __VERSION__
 Platform:
 - Windows.Desktop
@@ -6,7 +6,6 @@ InstallerType: msix
 Scope: user
 InstallModes:
 - silent
-InstallerSwitches: {}
 UpgradeBehavior: install
 Dependencies:
   PackageDependencies:

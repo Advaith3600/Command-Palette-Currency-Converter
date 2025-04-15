@@ -1,4 +1,4 @@
-PackageIdentifier: advaith.CurrencyConverterforCommandPalette
+PackageIdentifier: advaith.CurrencyConverterCommandPalette
 PackageVersion: __VERSION__
 DefaultLocale: en-US
 ManifestType: version
