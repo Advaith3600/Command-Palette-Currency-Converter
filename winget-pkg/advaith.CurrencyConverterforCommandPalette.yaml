@@ -1,0 +1,5 @@
+PackageIdentifier: advaith.CurrencyConverterforCommandPalette
+PackageVersion: __VERSION__
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

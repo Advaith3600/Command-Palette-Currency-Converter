@@ -1,5 +1,9 @@
 # Currency Converter
 
+[![Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9PC2T04G3V9C)
+
+![GitHub Release](https://img.shields.io/github/v/release/advaith3600/Command-Palette-Currency-Converter)
+
 Command Palette extension which will convert real and crypto currencies.
 
 ![Screenshot](screenshots/screenshot1.png)

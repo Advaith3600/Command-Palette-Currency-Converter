@@ -1,0 +1,23 @@
+PackageIdentifier: advaith.CurrencyConverterforCommandPalette
+PackageVersion: __VERSION__
+Platform:
+- Windows.Desktop
+InstallerType: msix
+Scope: user
+InstallModes:
+- silent
+InstallerSwitches: {}
+UpgradeBehavior: install
+Dependencies:
+  PackageDependencies:
+  - PackageIdentifier: Microsoft.PowerToys
+  - PackageIdentifier: Microsoft.WindowsAppRuntime.1.6
+Installers:
+- Architecture: x64
+  InstallerUrl: __URL__
+  InstallerSha256: __SHA256__
+- Architecture: arm64
+  InstallerUrl: __armURL__
+  InstallerSha256: __armSHA256__
+ManifestType: installer
+ManifestVersion: 1.6.0
