@@ -7,6 +7,9 @@ on:
 
   workflow_dispatch:
   
+permissions:
+  contents: write
+
 jobs:
   publish:
     if: "!github.event.release.prerelease"
@@ -24,11 +27,14 @@ jobs:
           git rebase upstream/master
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push https://x-access-token:${{ secrets.WINGET_TOKEN }}@github.com/Advaith3600/winget-pkgs.git master --force
+          git push https://x-access-token:${{ secrets.WINGET_PKGS_TOKEN }}@github.com/Advaith3600/winget-pkgs.git master --force
 
       - name: Set up the repo
         run: |
           git clone https://github.com/Advaith3600/Command-Palette-Currency-Converter.git --depth 1
+          cd Command-Palette-Currency-Converter
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Publish to Winget
         run: |
@@ -36,25 +42,16 @@ jobs:
           $response = Invoke-RestMethod -Uri https://api.github.com/repos/Advaith3600/Command-Palette-Currency-Converter/releases/latest
           
           $ver = $response.tag_name
+          echo "VERSION=$ver" >> $env:GITHUB_ENV
           
           $msix = $response.assets | Where-Object { $_.name -like "*_x64_*.msix" } | Select-Object -ExpandProperty browser_download_url
           $msixARM = $response.assets | Where-Object { $_.name -like "*_arm64_*.msix" } | Select-Object -ExpandProperty browser_download_url
-          
-          Invoke-WebRequest -Uri $msix -OutFile .\x64.msix
-          Invoke-WebRequest -Uri $msixARM -OutFile .\arm.msix
-          $msixhash = Get-FileHash -Path .\x64.msix -Algorithm SHA256 | Select-Object -ExpandProperty Hash
-          $msixARMhash = Get-FileHash -Path .\arm.msix -Algorithm SHA256 | Select-Object -ExpandProperty Hash
 
-          # Publish to Winget
-          $wingetPackage = "advaith.CurrencyConverterforCommandPalette"
-          cd .\Command-Palette-Currency-Converter\winget-pkg
-          Get-ChildItem *.* -Recurse | ForEach-Object { 
-            (Get-Content $_.FullName) -replace '__VERSION__', "$ver" `
-                                     -replace '__URL__', "$msix" `
-                                     -replace '__SHA256__', "$msixhash" `
-                                     -replace '__armURL__', "$msixARM" `
-                                     -replace '__armSHA256__', "$msixARMhash" | 
-            Set-Content $_.FullName 
-          }
-          echo "Publishing to winget..."
-          ..\..\wingetcreate submit -p "New version: $wingetPackage version $ver" -t ${{ secrets.WINGET_TOKEN }} .
+          .\wingetcreate.exe update --urls $msix $msixARM --out .\Command-Palette-Currency-Converter\winget-pkg\ --token ${{ secrets.WINGETCREATE_TOKEN }} --version $ver advaith.CurrencyConverterCommandPalette
+
+      - name: Update the repo
+        run: |
+          cd Command-Palette-Currency-Converter
+          git add winget-pkg
+          git commit -m "Publish version ${{ env.VERSION }} to winget"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Advaith3600/Command-Palette-Currency-Converter.git HEAD:main

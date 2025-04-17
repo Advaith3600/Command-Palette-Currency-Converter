@@ -12,6 +12,28 @@ Command Palette extension which will convert real and crypto currencies.
 
 ![Screenshot Settings](screenshots/screenshot-settings.png)
 
+## Installation
+
+This extension supports both **x64** and **ARM** architectures for all installation methods.
+
+### Method 1: Through Microsoft Store
+
+You can install the Currency Converter plugin directly from the Microsoft Store. Click the badge below to go to the store page:
+
+[![Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9PC2T04G3V9C)
+
+### Method 2: Through Winget
+
+If you have Winget (Windows Package Manager) installed, you can install the plugin using the following command in your terminal:
+
+```
+winget install advaith.CurrencyConverterCommandPalette
+```
+
+### Method 3: From MSIX Files
+
+You can download the MSIX files from the [Releases](https://github.com/advaith3600/Command-Palette-Currency-Converter/releases) page on GitHub. Choose the appropriate file for your architecture (**x64** or **ARM**) and install it manually.
+
 ## Usage
 
 ```
