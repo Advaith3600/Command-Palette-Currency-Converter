@@ -20,7 +20,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 {
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
-
+    
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
     public CurrencyConverterExtensionPage(SettingsManager settings)
@@ -72,8 +72,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         string groupSeparator = Regex.Escape(formatter.CurrencyGroupSeparator);
 
         string amountPattern = $@"(?<amount>(?:\d+|\s+|{decimalSeparator}|{groupSeparator}|[+\-*/()])+)";
-        string fromPattern = @"(?<from>[\p{L}\p{Sc}_]*)";
-        string toPattern = @"(?<to>[\p{L}\p{Sc}_]*)";
+        string fromPattern = $@"(?<from>{AliasManager.KeyRegex})";
+        string toPattern = $@"(?<to>{AliasManager.KeyRegex})";
 
         string pattern = $@"^\s*(?:(?:{amountPattern}\s*{fromPattern})|(?:{fromPattern}\s*{amountPattern}))\s*(?:to|in)?\s*{toPattern}\s*$";
         Match match = Regex.Match(search.Trim(), pattern);
@@ -132,13 +132,13 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         if (oldSearch != newSearch)
         {
-            DebounceSearch(newSearch);
+            DebounceSearch();
         }
     }
 
     private CancellationTokenSource? _debounceCts;
 
-    private void DebounceSearch(string newSearch)
+    private void DebounceSearch()
     {
         // Cancel any ongoing debounce task
         _debounceCts?.Cancel();

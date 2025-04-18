@@ -12,15 +12,26 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
 {
     private readonly ICommandItem[] _commands;
     private readonly SettingsManager _settingsManager = new();
+    private readonly AliasManager _aliasManager = new();
 
     public CurrencyConverterExtensionCommandsProvider()
     {
         DisplayName = "Currency Converter";
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Settings = _settingsManager.Settings;
-        string Subtitle = "Convert real and crypto currencies.";
+
+        _aliasManager.InitializeAsync().Wait();
         _commands = [
-            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager)) { Title = DisplayName, Icon = Icon, Subtitle = Subtitle },
+            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager)) { 
+                Title = DisplayName, 
+                Icon = Icon, 
+                Subtitle = "Convert real and crypto currencies.",
+            },
+            new CommandItem(new CurrencyConverterAliasPage(_aliasManager)) {
+                Title = DisplayName,
+                Icon = Icon,
+                Subtitle = "Update currency aliases."
+            },
         ];
     }
 

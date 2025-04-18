@@ -15,14 +15,9 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
-    <Compile Remove="Commands\**" />
-    <EmbeddedResource Remove="Commands\**" />
-    <None Remove="Commands\**" />
-    <Page Remove="Commands\**" />
-  </ItemGroup>
 
   <ItemGroup>
+    <Content Include="alias.default.json" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
@@ -86,12 +81,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PRIResource Remove="Commands\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Remove="Assets\LargeTile.scale-100.png" />
     <Content Remove="Assets\SmallTile.scale-100.png" />
     <Content Remove="Assets\Square150x150Logo.scale-100.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="alias.default.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Helpers\Commands\" />
+    <Folder Include="NewFolder\" />
   </ItemGroup>
 </Project>
