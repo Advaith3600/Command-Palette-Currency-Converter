@@ -15,6 +15,12 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Helpers\Commands\**" />
+    <EmbeddedResource Remove="Helpers\Commands\**" />
+    <None Remove="Helpers\Commands\**" />
+    <Page Remove="Helpers\Commands\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="alias.default.json" />
@@ -91,7 +97,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Helpers\Commands\" />
-    <Folder Include="NewFolder\" />
+    <PRIResource Remove="Helpers\Commands\**" />
   </ItemGroup>
 </Project>

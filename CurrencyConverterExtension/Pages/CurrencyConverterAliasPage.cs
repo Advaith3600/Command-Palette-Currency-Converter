@@ -1,16 +1,12 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
+﻿using System.Linq;
 using CurrencyConverterExtension.Commands;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Microsoft.Windows.Management.Deployment;
 
 namespace CurrencyConverterExtension;
 
-internal sealed partial class CurrencyConverterAliasPage : DynamicListPage
+internal sealed partial class CurrencyConverterAliasPage : ListPage
 {
     internal readonly AliasManager _aliasManager;
 
@@ -25,59 +21,27 @@ internal sealed partial class CurrencyConverterAliasPage : DynamicListPage
 
     public override IListItem[] GetItems()
     {
-        string[] createAlias = SearchText.ToLower().Replace(" ", "").Split("=>");
-        
-       ListItem createCommand = new ListItem(new NoOpCommand())
-       { 
-            Title = $"Create"
-       };
+        // TODO: When GoToPage is implemented in CommandResult, use it to navigate to the CreateAliasPage
+        //ListItem createAlias = new(new OpenCreateAliasPageCommand());
 
-        return _aliasManager
-            .GetAllAliases()
-            .Where(kvp => kvp.Key.Contains(SearchText) || kvp.Value.Contains(SearchText))
-            .Select(kvp => {
-                ClearAliasCommand command = new(_aliasManager, kvp.Key);
-                command.ItemsChanged += OnAliasClear;
-                return new ListItem(new NoOpCommand())
-                {
-                    Title = $"{kvp.Key} => {kvp.Value}",
-                    Icon = IconManager.Icon,
-                    MoreCommands = [
-                        new CommandContextItem(command)
-                    ]
-                };
-            })
-            .ToArray();
+        return [
+            //createAlias, 
+            .._aliasManager
+                .GetAllAliases()
+                .Select(kvp => {
+                    ClearAliasCommand command = new(_aliasManager, kvp.Key);
+                    command.ItemsChanged += OnAliasClear;
+                    return new ListItem(new NoOpCommand())
+                    {
+                        Title = $"{kvp.Key} => {kvp.Value}",
+                        Icon = IconManager.Icon,
+                        MoreCommands = [
+                            new CommandContextItem(command)
+                        ]
+                    };
+                })
+        ];
     }
 
     private void OnAliasClear() => RaiseItemsChanged();
-
-    public override void UpdateSearchText(string oldSearch, string newSearch)
-    {
-        if (oldSearch == newSearch)
-        {
-            DebounceSearch();
-        }
-    }
-
-    private CancellationTokenSource? _debounceCts;
-
-    private void DebounceSearch()
-    {
-        // Cancel any ongoing debounce task
-        _debounceCts?.Cancel();
-        _debounceCts = new CancellationTokenSource();
-
-        var token = _debounceCts.Token;
-
-        Task.Delay(300, token) // 300ms debounce delay
-            .ContinueWith(t =>
-            {
-                if (!t.IsCanceled)
-                {
-                    // Trigger the items update after debounce delay
-                    RaiseItemsChanged();
-                }
-            }, TaskScheduler.Default);
-    }
 }

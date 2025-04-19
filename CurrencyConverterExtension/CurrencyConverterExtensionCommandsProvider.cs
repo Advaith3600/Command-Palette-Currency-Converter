@@ -22,7 +22,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
 
         _aliasManager.InitializeAsync().Wait();
         _commands = [
-            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager)) { 
+            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager, _aliasManager)) { 
                 Title = DisplayName, 
                 Icon = Icon, 
                 Subtitle = "Convert real and crypto currencies.",
@@ -30,7 +30,12 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             new CommandItem(new CurrencyConverterAliasPage(_aliasManager)) {
                 Title = DisplayName,
                 Icon = Icon,
-                Subtitle = "Update currency aliases."
+                Subtitle = "Remove currency aliases."
+            },
+            new CommandItem(new CurrencyConverterCreateAliasPage(_aliasManager)) {
+                Title = DisplayName,
+                Icon = Icon,
+                Subtitle = "Create a new currency alias."
             },
         ];
     }

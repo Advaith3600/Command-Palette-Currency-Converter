@@ -11,7 +11,7 @@
   <Identity
     Name="AdvaithAJ.CurrencyConverterforCommandPalette"
     Publisher="CN=4F1E0968-2AB4-439F-A1A1-A7207A0883E5"
-    Version="0.0.1.0" />
+    Version="0.1.0.0" />
   <!-- When you're ready to publish your extension, you'll need to change the
        Publisher= to match your own identity -->
 

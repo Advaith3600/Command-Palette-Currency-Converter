@@ -21,7 +21,7 @@ namespace CurrencyConverterExtension.Helpers
             aliases = new Dictionary<string, string>();
         }
 
-        public bool ValidateKey(string key) => Regex.Match(key, KeyRegex).Success;
+        public bool ValidateKeyFormat(string key) => Regex.Match(key, KeyRegex).Success;
 
         public async Task InitializeAsync()
         {
@@ -54,6 +54,8 @@ namespace CurrencyConverterExtension.Helpers
                 aliases[key] = jsonObject[key].GetString();
             }
         }
+
+        public bool HasAlias(string currencyCode) => aliases.ContainsKey(currencyCode);
 
         public string GetAlias(string currencyCode)
         {

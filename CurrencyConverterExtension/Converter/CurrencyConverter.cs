@@ -26,18 +26,20 @@ internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, st
     }
 }
 
-public sealed partial class CurrencyConverter : IDisposable
+internal sealed partial class CurrencyConverter : IDisposable
 {
     internal SettingsManager _settings;
     internal ConverterSettings _converterSettings;
+    internal AliasManager _aliasManager;
 
     private readonly ConcurrentDictionary<(string From, string To), (decimal Rate, DateTime Timestamp)> _conversionCache = new(new CaseInsensitiveTupleComparer());
     private readonly HttpClient _httpClient;
 
-    public CurrencyConverter(SettingsManager settings)
+    internal CurrencyConverter(SettingsManager settings, AliasManager aliasManager)
     {
         _settings = settings;
         _converterSettings = new(_settings);
+        _aliasManager = aliasManager;
         
         HttpClientHandler handler = new()
         {
@@ -208,6 +210,11 @@ public sealed partial class CurrencyConverter : IDisposable
 
     private string GetCurrencyFromAlias(string currency)
     {
+        if (_aliasManager.HasAlias(currency))
+        {
+            return _aliasManager.GetAlias(currency);
+        }
+
         return currency;
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation
+﻿// Copyright (c) Microsoft Corporation
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -23,21 +23,20 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
-    public CurrencyConverterExtensionPage(SettingsManager settings)
+    public CurrencyConverterExtensionPage(SettingsManager settings, AliasManager aliasManager)
     {
         Icon = IconManager.Icon;
         Title = "Currency Converter";
         Name = "Convert";
 
         _settings = settings;
-        _converter = new(_settings);
+        _converter = new(_settings, aliasManager);
     }
 
     public override IListItem[] GetItems()
     {
-        string query = SearchText;
-        if (query.Length == 0)
-            return [];
+        if (SearchText.Length == 0)
+            return FallbackItems();
 
         IsLoading = true;
         try
@@ -56,13 +55,64 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             ];
         }
 
-        var results = ParseQuery(query)
+        var results = ParseQuery(SearchText)
             .Where(x => x != null)
             .GroupBy(r => new { r.Title, r.Subtitle })
             .Select(g => g.First());
 
         IsLoading = false;
         return [.. results];
+    }
+
+    private AnonymousCommand UpdateSearchCommand(string text)
+    {
+        return new AnonymousCommand(() =>
+         {
+             SearchText = text;
+         })
+        {
+            Name = "Use",
+            Result = CommandResult.KeepOpen()
+        };
+    }
+
+    private IListItem[] FallbackItems()
+    {
+        return [
+            new ListItem(new OpenUrlCommand(GithubReadmeURL))
+            {
+                Title = "Start typing to convert currencies",
+                Subtitle = "Few examples are listed below",
+                Icon = IconManager.Icon,
+            },
+            new ListItem(UpdateSearchCommand("100 USD to INR"))
+            {
+                Title = "100 USD to INR",
+                Subtitle = "Convert 100 US Dollars to Indian Rupees",
+                Icon = IconManager.Icon,
+                MoreCommands = [
+                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                ]
+            },
+            new ListItem(UpdateSearchCommand("$100 to €"))
+            {
+                Title = "$100 to €",
+                Subtitle = "Convert 100 US Dollars to Euros",
+                Icon = IconManager.Icon,
+                MoreCommands = [
+                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                ]
+            },
+            new ListItem(UpdateSearchCommand("₽100"))
+            {
+                Title = "₽100",
+                Subtitle = "Convert 100 Russian Rubles",
+                Icon = IconManager.Icon,
+                MoreCommands = [
+                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                ]
+            },
+        ];
     }
 
     private List<ListItem> ParseQuery(string search)
@@ -132,13 +182,13 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         if (oldSearch != newSearch)
         {
-            DebounceSearch();
+            DebounceSearch(newSearch.Length);
         }
     }
 
     private CancellationTokenSource? _debounceCts;
 
-    private void DebounceSearch()
+    private void DebounceSearch(int searchLength)
     {
         // Cancel any ongoing debounce task
         _debounceCts?.Cancel();
@@ -152,7 +202,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 if (!t.IsCanceled)
                 {
                     // Trigger the items update after debounce delay
-                    RaiseItemsChanged();
+                    RaiseItemsChanged(searchLength);
                 }
             }, TaskScheduler.Default);
     }
