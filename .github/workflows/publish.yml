@@ -48,6 +48,13 @@ jobs:
           $msixARM = $response.assets | Where-Object { $_.name -like "*_arm64_*.msix" } | Select-Object -ExpandProperty browser_download_url
 
           .\wingetcreate.exe update --urls $msix $msixARM --out .\Command-Palette-Currency-Converter\winget-pkg\ --token ${{ secrets.WINGETCREATE_TOKEN }} --version $ver advaith.CurrencyConverterCommandPalette
+          cd .\Command-Palette-Currency-Converter\winget-pkg
+          Get-ChildItem -Path .\manifests -Recurse -File | ForEach-Object {
+            Move-Item -Path $_.FullName -Destination . -Force
+          }
+          Remove-Item -Path .\manifests -Recurse -Force
+          ..\..\wingetcreate submit -p "New version: advaith.CurrencyConverterCommandPalette version $ver" -t ${{ secrets.WINGETCREATE_TOKEN }} .
+
 
       - name: Update the repo
         run: |

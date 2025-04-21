@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
 
 PackageIdentifier: advaith.CurrencyConverterCommandPalette
-PackageVersion: 0.0.1
+PackageVersion: 0.1.0
 PackageLocale: en-US
 Publisher: Advaith A J
 PublisherUrl: https://github.com/Advaith3600
@@ -11,8 +11,6 @@ PackageName: Currency Converter for Command Palette
 PackageUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter
 License: MIT
 ShortDescription: Currency Converter
-Description: |
-  Command Palette extension which will convert real and crypto currencies.
 Tags:
 - command-palette
 - converter
@@ -23,7 +21,7 @@ Tags:
 - powertoys
 - powertoys-command-palette
 - windows-commandpalette-extension
-ReleaseNotesUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/releases/tag/0.0.1
+ReleaseNotesUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/releases/tag/0.1.0
 Documentations:
 - DocumentLabel: Wiki
   DocumentUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/wiki
