@@ -8,8 +8,6 @@ Command Palette extension which will convert real and crypto currencies.
 
 ![Screenshot](screenshots/screenshot1.png)
 
-> Note: This is a port of the [PowerToys Run Currency Converter](https://github.com/advaith3600/powertoys-run-currency-converter) plugin and some of the features including the aliasing is not working yet. 
-
 ![Screenshot Settings](screenshots/screenshot-settings.png)
 
 ## Installation
@@ -85,6 +83,18 @@ The plugin outputs values using dynamic precision. This means that if a value is
 You can input mathematical expressions, and the plugin will evaluate them using the BODMAS rule. The permitted operations are `+` (addition), `-` (subtraction), `*` (multiplication), and `/` (division). The use of brackets is also supported.
 
 ![Screenshot](screenshots/screenshot3.png)
+
+## Aliasing
+
+You can now create and delete alias by from the different command options available
+
+![Screenshot](screenshots/screenshot-commands.png)
+
+You can remove currencies by pressing `Ctrl + Enter` and confirming the prompt
+
+![Screenshot](screenshots/screenshot4.png)
+
+![Screenshot](screenshots/screenshot5.png)
 
 ## Conversion API
 
