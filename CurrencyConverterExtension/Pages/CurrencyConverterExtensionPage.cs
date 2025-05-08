@@ -18,6 +18,7 @@ namespace CurrencyConverterExtension;
 
 internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, IDisposable
 {
+    private string _searchText = "";
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
     
@@ -31,6 +32,18 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
         _settings = settings;
         _converter = new(_settings, aliasManager);
+    }
+
+    public override string SearchText 
+    { 
+        get => _searchText; 
+        set 
+        { 
+            if (_searchText == value) return; 
+            var old = _searchText; 
+            _searchText = value; 
+            UpdateSearchText(old, value); 
+        } 
     }
 
     public override IListItem[] GetItems()
