@@ -96,7 +96,7 @@ namespace CurrencyConverterExtension.Helpers
         {
             var dir = Utilities.BaseSettingsPath("Microsoft.CmdPal");
             Directory.CreateDirectory(dir);
-            return Path.Combine(dir, "currency-converter.json");
+            return Path.Combine(dir, "settings.json");
         }
 
         public SettingsManager()

@@ -26,16 +26,25 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
                 Title = DisplayName, 
                 Icon = Icon, 
                 Subtitle = "Convert real and crypto currencies.",
+                MoreCommands = [
+                    new CommandContextItem(Settings.SettingsPage)
+                ]
             },
             new CommandItem(new CurrencyConverterAliasPage(_aliasManager)) {
                 Title = DisplayName,
                 Icon = Icon,
-                Subtitle = "Remove currency aliases."
+                Subtitle = "Remove currency aliases.",
+                MoreCommands = [
+                    new CommandContextItem(Settings.SettingsPage)
+                ]
             },
             new CommandItem(new CurrencyConverterCreateAliasPage(_aliasManager)) {
                 Title = DisplayName,
                 Icon = Icon,
-                Subtitle = "Create a new currency alias."
+                Subtitle = "Create a new currency alias.",
+                MoreCommands = [
+                    new CommandContextItem(Settings.SettingsPage)
+                ]
             },
         ];
     }
