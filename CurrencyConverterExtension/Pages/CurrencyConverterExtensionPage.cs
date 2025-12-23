@@ -100,7 +100,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Convert 100 US Dollars to Euros",
                 Icon = IconManager.Icon,
                 MoreCommands = [
-                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                    new CommandContextItem(new CopyTextCommand("$100 to €"))
                 ]
             },
             new ListItem(UpdateSearchCommand("₽100"))
@@ -109,7 +109,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Convert 100 Russian Rubles",
                 Icon = IconManager.Icon,
                 MoreCommands = [
-                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                    new CommandContextItem(new CopyTextCommand("₽100"))
                 ]
             },
         ];
@@ -150,8 +150,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             ];
         }
 
-        string fromCurrency = match.Groups["from"].Value.Trim().ToLower();
-        string toCurrency = string.IsNullOrEmpty(match.Groups["to"].Value.Trim()) ? "" : match.Groups["to"].Value.Trim().ToLower();
+        string fromCurrency = match.Groups["from"].Value.Trim().ToLowerInvariant();
+        string toCurrency = string.IsNullOrEmpty(match.Groups["to"].Value.Trim()) ? "" : match.Groups["to"].Value.Trim().ToLowerInvariant();
 
         return _converter.GetConversionResults(amountToConvert, fromCurrency, toCurrency);
     }

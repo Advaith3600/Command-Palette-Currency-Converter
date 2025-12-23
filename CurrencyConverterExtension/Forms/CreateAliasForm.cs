@@ -91,7 +91,7 @@ namespace CurrencyConverterExtension.Forms
                 return CommandResult.KeepOpen();
             }
 
-            _aliasManager.SetAliasAsync(alias, currency).Wait();
+            _aliasManager.SetAliasAsync(alias, currency).GetAwaiter().GetResult();
             new ToastStatusMessage($"Alias '{alias}' => '{currency}' created").Show();
             return CommandResult.KeepOpen();
         }

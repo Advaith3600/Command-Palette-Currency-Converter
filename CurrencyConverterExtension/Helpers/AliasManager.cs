@@ -6,12 +6,15 @@ using Windows.Data.Json;
 using CurrencyConverterExtension.Helpers;
 using System.Text.RegularExpressions;
 using Windows.Devices.Power;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace CurrencyConverterExtension.Helpers
 {
     internal class AliasManager
     {
-        public const string KeyRegex = @"[\p{L}\p{Sc}_]*";
+        // Require at least one character; allow letters, numbers, currency symbols, and underscores.
+        public const string KeyRegex = @"[\p{L}\p{N}\p{Sc}_]+";
 
         private const string AliasFileName = "currency_alias.json";
         private Dictionary<string, string> aliases;
@@ -21,7 +24,7 @@ namespace CurrencyConverterExtension.Helpers
             aliases = new Dictionary<string, string>();
         }
 
-        public bool ValidateKeyFormat(string key) => Regex.Match(key, KeyRegex).Success;
+        public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.Match(key, KeyRegex).Success;
 
         public async Task InitializeAsync()
         {
@@ -57,7 +60,7 @@ namespace CurrencyConverterExtension.Helpers
 
         public bool HasAlias(string currencyCode) => aliases.ContainsKey(currencyCode);
 
-        public string GetAlias(string currencyCode)
+        public string? GetAlias(string currencyCode)
         {
             if (aliases.TryGetValue(currencyCode, out string alias))
             {
@@ -87,14 +90,36 @@ namespace CurrencyConverterExtension.Helpers
             StorageFolder roamingFolder = ApplicationData.Current.RoamingFolder;
             StorageFile aliasFile = await roamingFolder.CreateFileAsync(AliasFileName, CreationCollisionOption.ReplaceExisting);
 
+            string jsonText = GetAliasesJson();
+            await FileIO.WriteTextAsync(aliasFile, jsonText);
+        }
+
+        private string GetAliasesJson()
+        {
             JsonObject jsonObject = new JsonObject();
-            foreach (var kvp in aliases)
+            foreach (var kvp in aliases.OrderBy(k => k.Key))
             {
                 jsonObject[kvp.Key] = JsonValue.CreateStringValue(kvp.Value);
             }
 
-            string jsonText = jsonObject.Stringify();
-            await FileIO.WriteTextAsync(aliasFile, jsonText);
+            return jsonObject.Stringify();
+        }
+
+        public async Task ResetToDefaultAsync()
+        {
+            StorageFolder roamingFolder = ApplicationData.Current.RoamingFolder;
+            StorageFile defaultAliasFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///alias.default.json"));
+            await defaultAliasFile.CopyAsync(roamingFolder, AliasFileName, NameCollisionOption.ReplaceExisting);
+            await LoadAliasesAsync();
+        }
+
+        public async Task<string> ExportAliasesAsync()
+        {
+            string fileName = $"currency_alias_export_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
+            StorageFolder targetFolder = ApplicationData.Current.LocalFolder;
+            StorageFile targetFile = await targetFolder.CreateFileAsync(fileName, CreationCollisionOption.ReplaceExisting);
+            await FileIO.WriteTextAsync(targetFile, GetAliasesJson());
+            return targetFile.Path;
         }
     }
 }

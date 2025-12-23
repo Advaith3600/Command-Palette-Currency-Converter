@@ -1,13 +1,14 @@
-﻿using System;
+﻿using CurrencyConverterExtension.Helpers;
+using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
-using System.Globalization;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using CurrencyConverterExtension.Helpers;
-using Microsoft.CommandPalette.Extensions.Toolkit;
 
 namespace CurrencyConverterExtension.Converter;
 
@@ -40,18 +41,20 @@ internal sealed partial class CurrencyConverter : IDisposable
         _settings = settings;
         _converterSettings = new(_settings);
         _aliasManager = aliasManager;
-        
+
+        var proxy = WebRequest.DefaultWebProxy;
         HttpClientHandler handler = new()
         {
-            UseDefaultCredentials = true,
-            PreAuthenticate = true
+            Proxy = proxy,
+            UseProxy = proxy != null,
+            DefaultProxyCredentials = CredentialCache.DefaultCredentials
         };
         _httpClient = new HttpClient(handler);
     }
 
     public List<ListItem> GetConversionResults(decimal amountToConvert, string fromCurrency, string toCurrency)
     {
-        List<(int index, string fromCurrency, Task<ListItem?> task)> conversionTasks = [];
+        List<(int index, Task<ListItem?> task)> conversionTasks = [];
         int index = 0;
 
         if (string.IsNullOrEmpty(fromCurrency))
@@ -60,11 +63,11 @@ internal sealed partial class CurrencyConverter : IDisposable
             {
                 if (_settings.ConversionDirection == 0)
                 {
-                    conversionTasks.Add((index++, _settings.LocalCurrency, Task.Run(() => GetConversion(amountToConvert, _settings.LocalCurrency, currency))));
+                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency)));
                 }
                 else
                 {
-                    conversionTasks.Add((index++, currency, Task.Run(() => GetConversion(amountToConvert, currency, _settings.LocalCurrency))));
+                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency)));
                 }
             }
 
@@ -72,11 +75,11 @@ internal sealed partial class CurrencyConverter : IDisposable
             {
                 if (_settings.ConversionDirection == 0)
                 {
-                    conversionTasks.Add((index++, currency, Task.Run(() => GetConversion(amountToConvert, currency, _settings.LocalCurrency))));
+                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency)));
                 }
                 else
                 {
-                    conversionTasks.Add((index++, _settings.LocalCurrency, Task.Run(() => GetConversion(amountToConvert, _settings.LocalCurrency, currency))));
+                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency)));
                 }
             }
         }
@@ -84,44 +87,39 @@ internal sealed partial class CurrencyConverter : IDisposable
         {
             if (_settings.ConversionDirection == 0)
             {
-                conversionTasks.Add((index++, fromCurrency, Task.Run(() => GetConversion(amountToConvert, fromCurrency, _settings.LocalCurrency))));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency)));
             }
 
             foreach (string currency in _settings.Currencies)
             {
-                conversionTasks.Add((index++, fromCurrency, Task.Run(() => GetConversion(amountToConvert, fromCurrency, currency))));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, currency)));
             }
 
             if (_settings.ConversionDirection == 1)
             {
-                conversionTasks.Add((index++, fromCurrency, Task.Run(() => GetConversion(amountToConvert, fromCurrency, _settings.LocalCurrency))));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency)));
             }
         }
         else
         {
-            conversionTasks.Add((index++, fromCurrency, Task.Run(() => GetConversion(amountToConvert, fromCurrency, toCurrency))));
+            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, toCurrency)));
         }
 
-        var groupedTasks = conversionTasks.GroupBy(t => t.fromCurrency);
+        Task.WhenAll(conversionTasks.Select(t => t.task)).GetAwaiter().GetResult();
 
         var results = new ListItem?[conversionTasks.Count];
-
-        Parallel.ForEach(groupedTasks, group =>
+        foreach (var task in conversionTasks)
         {
-            foreach (var task in group)
-            {
-                task.task.Wait();
-                results[task.index] = task.task.Result;
-            }
-        });
+            results[task.index] = task.task.Result;
+        }
 
-        return results.Where(r => r != null).ToList();
+        return results.Where(r => r != null).Select(r => r!).ToList();
     }
 
-    private ListItem? GetConversion(decimal amountToConvert, string fromCurrency, string toCurrency)
+    private async Task<ListItem?> GetConversionAsync(decimal amountToConvert, string fromCurrency, string toCurrency)
     {
-        fromCurrency = GetCurrencyFromAlias(fromCurrency.ToLower());
-        toCurrency = GetCurrencyFromAlias(toCurrency.ToLower());
+        fromCurrency = GetCurrencyFromAlias(fromCurrency.ToLowerInvariant());
+        toCurrency = GetCurrencyFromAlias(toCurrency.ToLowerInvariant());
 
         if (fromCurrency == toCurrency || string.IsNullOrEmpty(fromCurrency) || string.IsNullOrEmpty(toCurrency))
         {
@@ -130,19 +128,19 @@ internal sealed partial class CurrencyConverter : IDisposable
 
         try
         {
-            decimal conversionRate = GetConversionRateSync(fromCurrency, toCurrency);
+            decimal conversionRate = await GetConversionRateAsync(fromCurrency, toCurrency).ConfigureAwait(false);
             (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
 
             string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
             string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
 
-            string compressedOutput = $"{toFormatted} {toCurrency.ToUpper()}";
-            string expandedOutput = $"{fromFormatted} {fromCurrency.ToUpper()} = {toFormatted} {toCurrency.ToUpper()}";
+            string compressedOutput = $"{toFormatted} {toCurrency.ToUpperInvariant()}";
+            string expandedOutput = $"{fromFormatted} {fromCurrency.ToUpperInvariant()} = {toFormatted} {toCurrency.ToUpperInvariant()}";
 
             return new ListItem(new CopyTextCommand(toFormatted))
             {
                 Title = _settings.OutputStyle == 0 ? compressedOutput : expandedOutput,
-                Subtitle = $"Currency conversion from {fromCurrency.ToUpper()} to {toCurrency.ToUpper()}",
+                Subtitle = $"Currency conversion from {fromCurrency.ToUpperInvariant()} to {toCurrency.ToUpperInvariant()}",
                 Icon = IconManager.Icon,
             };
         }
@@ -157,51 +155,52 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
     }
 
-    private decimal GetConversionRateSync(string fromCurrency, string toCurrency)
+    private async Task<decimal> GetConversionRateAsync(string fromCurrency, string toCurrency)
     {
         var cacheKey = (fromCurrency, toCurrency);
 
         if (_conversionCache.TryGetValue(cacheKey, out var directCacheData) &&
-            directCacheData.Timestamp > DateTime.Now.AddHours(-_settings.ConversionCacheDuration))
+            directCacheData.Timestamp > DateTime.UtcNow.AddHours(-_settings.ConversionCacheDuration))
         {
             return directCacheData.Rate;
         }
 
         string url = _converterSettings.GetConversionLink(fromCurrency, toCurrency);
-        HttpResponseMessage response = _httpClient.GetAsync(url).Result;
+        HttpResponseMessage response = await _httpClient.GetAsync(url).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                throw new Exception($"{fromCurrency.ToUpper()} is not a valid currency");
+                throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
+                throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
             }
             else
             {
                 string fallbackUrl = _converterSettings.GetConversionFallbackLink(fromCurrency, toCurrency);
-                response = _httpClient.GetAsync(fallbackUrl).Result;
+                response = await _httpClient.GetAsync(fallbackUrl).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     throw response.StatusCode == System.Net.HttpStatusCode.NotFound
-                        ? new Exception($"{fromCurrency.ToUpper()} is not a valid currency")
-                        : new Exception("Something went wrong while fetching the conversion rate");
+                        ? new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency")
+                        : new InvalidOperationException("Something went wrong while fetching the conversion rate");
                 }
             }
         }
 
-        string content = response.Content.ReadAsStringAsync().Result;
+        string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         decimal conversionRate;
 
         JsonElement fromCurrencyElement = _converterSettings.GetRootJsonElementFor(content, fromCurrency);
         foreach (JsonProperty property in fromCurrencyElement.EnumerateObject())
         {
             (string targetCurrency, decimal rate) = _converterSettings.GetRateFor(property);
-            _conversionCache[(fromCurrency, targetCurrency)] = (rate, DateTime.Now);
+            _conversionCache[(fromCurrency, targetCurrency)] = (rate, DateTime.UtcNow);
         }
         if (!_conversionCache.TryGetValue((fromCurrency, toCurrency), out var cacheOutput))
         {
-            throw new Exception($"{toCurrency.ToUpper()} is not a valid currency");
+            throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
         }
         conversionRate = cacheOutput.Rate;
 
@@ -212,7 +211,7 @@ internal sealed partial class CurrencyConverter : IDisposable
     {
         if (_aliasManager.HasAlias(currency))
         {
-            return _aliasManager.GetAlias(currency);
+            return _aliasManager.GetAlias(currency) ?? currency;
         }
 
         return currency;

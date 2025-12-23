@@ -70,7 +70,10 @@ public class ConverterSettings
 
     internal JsonElement GetRootJsonElementFor(string content, string fromCurrency)
     {
-        JsonElement GetProperty(string property) => JsonDocument.Parse(content).RootElement.GetProperty(property);
+        using JsonDocument doc = JsonDocument.Parse(content);
+        JsonElement root = doc.RootElement;
+
+        JsonElement GetProperty(string property) => root.GetProperty(property).Clone();
 
         switch (_settings.ConversionAPI)
         {
@@ -88,14 +91,14 @@ public class ConverterSettings
         {
             if (property.Value.TryGetProperty("code", out JsonElement codeElement))
             {
-                string code = codeElement.GetString();
-                if (property.Value.TryGetProperty("value", out JsonElement valueElement))
+                string? code = codeElement.GetString();
+                if (!string.IsNullOrEmpty(code) && property.Value.TryGetProperty("value", out JsonElement valueElement))
                 {
                     decimal value = valueElement.GetDecimal();
                     return (code, value);
                 }
             }
-            throw new Exception("Invalid JSON structure: missing 'code' or 'value'.");
+            throw new InvalidOperationException("Invalid JSON structure: missing 'code' or 'value'.");
         }
 
         return (property.Name, property.Value.GetDecimal());

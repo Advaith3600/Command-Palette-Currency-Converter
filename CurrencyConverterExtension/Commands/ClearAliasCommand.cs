@@ -1,6 +1,7 @@
 ﻿using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
+using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Commands
 {
@@ -9,7 +10,7 @@ namespace CurrencyConverterExtension.Commands
         internal readonly AliasManager _aliasManager;
         internal readonly string _aliasKey;
 
-        public event Action ItemsChanged;
+        public event Action? ItemsChanged;
 
         internal ClearAliasCommand(AliasManager aliasManager, string aliasKey)
         {
@@ -27,10 +28,13 @@ namespace CurrencyConverterExtension.Commands
                 PrimaryCommand = new AnonymousCommand(
                 () =>
                 {
-                    _aliasManager.RemoveAliasAsync(_aliasKey).Wait();
-                    ItemsChanged?.Invoke();
-                    ToastStatusMessage t = new("The alias was deleted");
-                    t.Show();
+                    _ = Task.Run(async () =>
+                    {
+                        await _aliasManager.RemoveAliasAsync(_aliasKey).ConfigureAwait(false);
+                        ItemsChanged?.Invoke();
+                        ToastStatusMessage t = new("The alias was deleted");
+                        t.Show();
+                    });
                 })
                 {
                     Name = "Confirm",
