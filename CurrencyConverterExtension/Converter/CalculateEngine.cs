@@ -1,12 +1,12 @@
 ﻿using System;
-using System.Text;
-using System.Globalization;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 
 namespace CurrencyConverterExtension.Converter;
 
-	public static class CalculateEngine
-	{
+public static class CalculateEngine
+{
     private static bool HasPrecedence(char op1, char op2)
     {
         if (op2 == '(' || op2 == ')')

@@ -1,6 +1,6 @@
-﻿using System.Text.Json.Nodes;
-using CurrencyConverterExtension.Helpers;
+﻿using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System.Text.Json.Nodes;
 
 namespace CurrencyConverterExtension.Forms
 {
@@ -93,6 +93,8 @@ namespace CurrencyConverterExtension.Forms
 
             _aliasManager.SetAliasAsync(alias, currency).GetAwaiter().GetResult();
             new ToastStatusMessage($"Alias '{alias}' => '{currency}' created").Show();
+            // TODO: When GoToPage is implemented, navigate back to alias page
+            // https://github.com/microsoft/PowerToys/issues/38338
             return CommandResult.KeepOpen();
         }
     }

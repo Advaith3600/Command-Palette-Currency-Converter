@@ -1,10 +1,10 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using CurrencyConverterExtension.Commands;
+﻿using CurrencyConverterExtension.Commands;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension;
 
@@ -14,6 +14,7 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
 
     public CurrencyConverterAliasPage(AliasManager aliasManager)
     {
+        Id = "CurrencyConverterAliasPage";
         Icon = IconManager.Icon;
         Title = "Currency Converter";
         Name = "Alias";
@@ -25,7 +26,6 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
     {
         // TODO: When GoToPage is implemented in CommandResult, use it to navigate to the CreateAliasPage
         // https://github.com/microsoft/PowerToys/issues/38338
-        // ListItem createAlias = new(new OpenCreateAliasPageCommand());
 
         List<IListItem> items = new();
 
@@ -77,7 +77,8 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
 
         items.AddRange(_aliasManager
             .GetAllAliases()
-            .Select(kvp => {
+            .Select(kvp =>
+            {
                 ClearAliasCommand command = new(_aliasManager, kvp.Key);
                 command.ItemsChanged += OnAliasClear;
                 return new ListItem(new NoOpCommand())

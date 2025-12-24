@@ -1,8 +1,8 @@
-﻿using System;
-using System.Text.Json;
+﻿using CurrencyConverterExtension.Helpers;
+using System;
 using System.Collections.Generic;
-using CurrencyConverterExtension.Helpers;
 using System.Globalization;
+using System.Text.Json;
 
 namespace CurrencyConverterExtension.Converter;
 

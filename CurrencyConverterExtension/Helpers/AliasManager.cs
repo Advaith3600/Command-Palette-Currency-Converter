@@ -1,20 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Windows.Storage;
-using Windows.Data.Json;
-using CurrencyConverterExtension.Helpers;
-using System.Text.RegularExpressions;
-using Windows.Devices.Power;
 using System.Linq;
-using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Windows.Data.Json;
+using Windows.Storage;
 
 namespace CurrencyConverterExtension.Helpers
 {
     internal class AliasManager
     {
         // Require at least one character; allow letters, numbers, currency symbols, and underscores.
-        public const string KeyRegex = @"[\p{L}\p{N}\p{Sc}_]+";
+        public const string KeyRegex = @"[\p{L}\p{Sc}_]*";
 
         private const string AliasFileName = "currency_alias.json";
         private Dictionary<string, string> aliases;

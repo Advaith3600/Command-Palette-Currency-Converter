@@ -1,6 +1,4 @@
-﻿using System.Linq;
-using CurrencyConverterExtension.Commands;
-using CurrencyConverterExtension.Forms;
+﻿using CurrencyConverterExtension.Forms;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;

@@ -1,4 +1,5 @@
-﻿using CurrencyConverterExtension.Helpers;
+﻿using CurrencyConverterExtension.Commands;
+using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Collections.Concurrent;
@@ -137,7 +138,14 @@ internal sealed partial class CurrencyConverter : IDisposable
             string compressedOutput = $"{toFormatted} {toCurrency.ToUpperInvariant()}";
             string expandedOutput = $"{fromFormatted} {fromCurrency.ToUpperInvariant()} = {toFormatted} {toCurrency.ToUpperInvariant()}";
 
-            return new ListItem(new CopyTextCommand(toFormatted))
+            return new ListItem(new CopyTextCommand(toFormatted)
+            {
+                Result = CommandResult.ShowToast(new ToastArgs()
+                {
+                    Message = "Copied to clipboard",
+                    Result = CommandResult.Hide()
+                })
+            })
             {
                 Title = _settings.OutputStyle == 0 ? compressedOutput : expandedOutput,
                 Subtitle = $"Currency conversion from {fromCurrency.ToUpperInvariant()} to {toCurrency.ToUpperInvariant()}",

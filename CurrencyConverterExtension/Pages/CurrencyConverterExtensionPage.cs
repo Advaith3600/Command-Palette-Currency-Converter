@@ -2,17 +2,18 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-using System.Linq;
-using System.Threading;
-using System.Globalization;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using CurrencyConverterExtension.Commands;
+using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
-using CurrencyConverterExtension.Converter;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension;
 
@@ -20,7 +21,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 {
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
-    
+
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
     public CurrencyConverterExtensionPage(SettingsManager settings, AliasManager aliasManager)
@@ -91,7 +92,13 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Convert 100 US Dollars to Indian Rupees",
                 Icon = IconManager.Icon,
                 MoreCommands = [
-                    new CommandContextItem(new CopyTextCommand("100 USD to INR"))
+                    new CommandContextItem(new CopyTextCommand("100 USD to INR") {
+                        Result = CommandResult.ShowToast(new ToastArgs()
+                        {
+                            Message = "Copied to clipboard",
+                            Result = CommandResult.KeepOpen()
+                        })
+                    })
                 ]
             },
             new ListItem(UpdateSearchCommand("$100 to €"))
@@ -100,7 +107,13 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Convert 100 US Dollars to Euros",
                 Icon = IconManager.Icon,
                 MoreCommands = [
-                    new CommandContextItem(new CopyTextCommand("$100 to €"))
+                    new CommandContextItem(new CopyTextCommand("$100 to €") {
+                        Result = CommandResult.ShowToast(new ToastArgs()
+                        {
+                            Message = "Copied to clipboard",
+                            Result = CommandResult.KeepOpen()
+                        })
+                    })
                 ]
             },
             new ListItem(UpdateSearchCommand("₽100"))
@@ -109,7 +122,13 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Convert 100 Russian Rubles",
                 Icon = IconManager.Icon,
                 MoreCommands = [
-                    new CommandContextItem(new CopyTextCommand("₽100"))
+                    new CommandContextItem(new CopyTextCommand("₽100") {
+                        Result = CommandResult.ShowToast(new ToastArgs()
+                        {
+                            Message = "Copied to clipboard",
+                            Result = CommandResult.KeepOpen()
+                        })
+                    })
                 ]
             },
         ];
