@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -113,10 +114,12 @@ namespace CurrencyConverterExtension.Helpers
         public async Task<string> ExportAliasesAsync()
         {
             string fileName = $"currency_alias_export_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
-            StorageFolder targetFolder = ApplicationData.Current.LocalFolder;
-            StorageFile targetFile = await targetFolder.CreateFileAsync(fileName, CreationCollisionOption.ReplaceExisting);
-            await FileIO.WriteTextAsync(targetFile, GetAliasesJson());
-            return targetFile.Path;
+            string pathUser = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string pathDownload = Path.Combine(pathUser, "Downloads");
+            Directory.CreateDirectory(pathDownload);
+            string filePath = Path.Combine(pathDownload, fileName);
+            File.WriteAllText(filePath, GetAliasesJson());
+            return filePath;
         }
     }
 }
