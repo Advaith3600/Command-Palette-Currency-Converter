@@ -31,22 +31,6 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
                     new CommandContextItem(Settings.SettingsPage)
                 ]
             },
-            new CommandItem(new CurrencyConverterAliasPage(_aliasManager)) {
-                Title = DisplayName,
-                Icon = Icon,
-                Subtitle = "Manage currency aliases.",
-                MoreCommands = [
-                    new CommandContextItem(Settings.SettingsPage)
-                ]
-            },
-            new CommandItem(new CurrencyConverterCreateAliasPage(_aliasManager)) {
-                Title = DisplayName,
-                Icon = Icon,
-                Subtitle = "Create a new currency alias.",
-                MoreCommands = [
-                    new CommandContextItem(Settings.SettingsPage)
-                ]
-            },
         ];
     }
 

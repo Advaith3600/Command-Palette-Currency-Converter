@@ -21,7 +21,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 {
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
-
+    internal readonly AliasManager _aliasManager;
+    
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
     public CurrencyConverterExtensionPage(SettingsManager settings, AliasManager aliasManager)
@@ -31,6 +32,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         Name = "Convert";
 
         _settings = settings;
+        _aliasManager = aliasManager;
         _converter = new(_settings, aliasManager);
     }
 
@@ -80,6 +82,12 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     private IListItem[] FallbackItems()
     {
         return [
+            new ListItem(new CurrencyConverterAliasPage(_aliasManager)) {
+                Title = "Manage currency aliases",
+                Subtitle = "View, create and remove your aliases",
+                Icon = Icon,
+            },
+            
             new ListItem(new OpenUrlCommand(GithubReadmeURL))
             {
                 Title = "Start typing to convert currencies",

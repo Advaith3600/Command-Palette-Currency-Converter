@@ -24,10 +24,14 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
 
     public override IListItem[] GetItems()
     {
-        // TODO: When GoToPage is implemented in CommandResult, use it to navigate to the CreateAliasPage
-        // https://github.com/microsoft/PowerToys/issues/38338
-
         List<IListItem> items = new();
+
+        items.Add(new ListItem(new CurrencyConverterCreateAliasPage(_aliasManager))
+        {
+            Title = "Create a new currency alias.",
+            Subtitle = "Add your own alias to make the conversions faster",
+            Icon = Icon,
+        });
 
         items.Add(new ListItem(new AnonymousCommand(() => { })
         {
@@ -83,7 +87,7 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
                 command.ItemsChanged += OnAliasClear;
                 return new ListItem(new NoOpCommand())
                 {
-                    Title = $"{kvp.Key} => {kvp.Value}",
+                    Title = $"{kvp.Key} ⇒ {kvp.Value}",
                     Icon = IconManager.Icon,
                     MoreCommands = [
                         new CommandContextItem(command)
