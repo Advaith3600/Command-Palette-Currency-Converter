@@ -48,9 +48,11 @@ $100 to eur
 100$ to euro
 ```
 
+![Screenshot](screenshots/screenshot-demo.png)
+
 ### Crypto and other currencies
 
-This plugin also converters real currencies to crypto currencies and vice versa. Refer [here](https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.json) for the full list of available conversions. 
+This plugin also converters real currencies to crypto currencies and vice versa. Refer [here](https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.json) for the full list of available conversions.
 
 Example Usage:
 
@@ -87,9 +89,7 @@ You can input mathematical expressions, and the plugin will evaluate them using 
 
 ## Aliasing
 
-You can now create and delete alias by from the different command options available
-
-![Screenshot](screenshots/screenshot-commands.png)
+View, create and remove aliases directly from the alias page. You can export your alias configuration to your downloads folder or reset all the aliases.
 
 You can remove currencies by pressing `Ctrl + Enter` and confirming the prompt
 
