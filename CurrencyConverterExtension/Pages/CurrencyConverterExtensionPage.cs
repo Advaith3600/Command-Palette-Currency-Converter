@@ -9,9 +9,7 @@ using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -144,65 +142,25 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
     private List<ListItem> ParseQuery(string search)
     {
-        NumberFormatInfo formatter = GetNumberFormatInfo();
-        string decimalSeparator = Regex.Escape(formatter.CurrencyDecimalSeparator);
-        string groupSeparator = Regex.Escape(formatter.CurrencyGroupSeparator);
+        var parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
 
-        string amountPattern = $@"(?<amount>(?:\d+|\s+|{decimalSeparator}|{groupSeparator}|[+\-*/()])+)";
-        string fromPattern = $@"(?<from>{AliasManager.KeyRegex})";
-        string toPattern = $@"(?<to>{AliasManager.KeyRegex})";
-
-        string pattern = $@"^\s*(?:(?:{amountPattern}\s*{fromPattern})|(?:{fromPattern}\s*{amountPattern}))\s*(?:to|in)?\s*{toPattern}\s*$";
-        Match match = Regex.Match(search.Trim(), pattern);
-
-        if (!match.Success)
+        return parseResult.Status switch
         {
-            return [];
-        }
-
-        decimal amountToConvert;
-        try
-        {
-            amountToConvert = CalculateEngine.Evaluate(match.Groups["amount"].Value.Replace(formatter.CurrencyGroupSeparator, ""), GetNumberFormatInfo());
-        }
-        catch (Exception)
-        {
-            return [
+            QueryParseStatus.NoMatch => [],
+            QueryParseStatus.InvalidExpression => [
                 new ListItem(new NoOpCommand())
                 {
                     Title = "Invalid expression provided",
                     Subtitle = "Please check your mathematical expression",
                     Icon = IconManager.WarningIcon,
                 }
-            ];
-        }
-
-        string fromCurrency = match.Groups["from"].Value.Trim().ToLowerInvariant();
-        string toCurrency = string.IsNullOrEmpty(match.Groups["to"].Value.Trim()) ? "" : match.Groups["to"].Value.Trim().ToLowerInvariant();
-
-        return _converter.GetConversionResults(amountToConvert, fromCurrency, toCurrency);
-    }
-
-    private NumberFormatInfo GetNumberFormatInfo()
-    {
-        NumberFormatInfo nfi = new();
-
-        switch (_settings.DecimalSeparator)
-        {
-            case 1:
-                nfi.CurrencyDecimalSeparator = ".";
-                nfi.CurrencyGroupSeparator = ",";
-                break;
-            case 2:
-                nfi.CurrencyDecimalSeparator = ",";
-                nfi.CurrencyGroupSeparator = ".";
-                break;
-            default:
-                nfi = CultureInfo.CurrentCulture.NumberFormat;
-                break;
-        }
-
-        return nfi;
+            ],
+            QueryParseStatus.Success => _converter.GetConversionResults(
+                parseResult.Query!.Value.Amount,
+                parseResult.Query.Value.FromCurrency,
+                parseResult.Query.Value.ToCurrency),
+            _ => [],
+        };
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)

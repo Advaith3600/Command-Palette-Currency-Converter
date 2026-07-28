@@ -22,6 +22,11 @@ namespace CurrencyConverterExtension.Helpers
             aliases = new Dictionary<string, string>();
         }
 
+        internal AliasManager(Dictionary<string, string> aliases)
+        {
+            this.aliases = aliases;
+        }
+
         public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.Match(key, KeyRegex).Success;
 
         public async Task InitializeAsync()

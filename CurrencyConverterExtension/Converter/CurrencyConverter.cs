@@ -30,27 +30,35 @@ internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, st
 
 internal sealed partial class CurrencyConverter : IDisposable
 {
-    internal SettingsManager _settings;
+    internal IConversionSettings _settings;
     internal ConverterSettings _converterSettings;
     internal AliasManager _aliasManager;
 
     private readonly ConcurrentDictionary<(string From, string To), (decimal Rate, DateTime Timestamp)> _conversionCache = new(new CaseInsensitiveTupleComparer());
     private readonly HttpClient _httpClient;
 
-    internal CurrencyConverter(SettingsManager settings, AliasManager aliasManager)
+    internal CurrencyConverter(IConversionSettings settings, AliasManager aliasManager)
+        : this(settings, aliasManager, CreateDefaultHandler())
+    {
+    }
+
+    internal CurrencyConverter(IConversionSettings settings, AliasManager aliasManager, HttpMessageHandler httpMessageHandler)
     {
         _settings = settings;
         _converterSettings = new(_settings);
         _aliasManager = aliasManager;
+        _httpClient = new HttpClient(httpMessageHandler);
+    }
 
+    private static HttpClientHandler CreateDefaultHandler()
+    {
         var proxy = WebRequest.DefaultWebProxy;
-        HttpClientHandler handler = new()
+        return new HttpClientHandler()
         {
             Proxy = proxy,
             UseProxy = proxy != null,
             DefaultProxyCredentials = CredentialCache.DefaultCredentials
         };
-        _httpClient = new HttpClient(handler);
     }
 
     public List<ListItem> GetConversionResults(decimal amountToConvert, string fromCurrency, string toCurrency)
@@ -181,7 +189,6 @@ internal sealed partial class CurrencyConverter : IDisposable
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
-                throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
             }
             else
             {
@@ -225,7 +232,7 @@ internal sealed partial class CurrencyConverter : IDisposable
         return currency;
     }
 
-    private (decimal ConvertedAmount, int Precision) CalculateConvertedAmount(decimal amountToConvert, decimal conversionRate)
+    internal (decimal ConvertedAmount, int Precision) CalculateConvertedAmount(decimal amountToConvert, decimal conversionRate)
     {
         int precision = CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalDigits;
         decimal rawConvertedAmount = Math.Abs(amountToConvert * conversionRate);

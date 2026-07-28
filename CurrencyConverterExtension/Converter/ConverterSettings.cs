@@ -10,9 +10,9 @@ public class ConverterSettings
 {
     public string ConversionDate { get; set; } = "latest";
 
-    private SettingsManager _settings { get; }
+    private IConversionSettings _settings { get; }
 
-    public ConverterSettings(SettingsManager settings)
+    public ConverterSettings(IConversionSettings settings)
     {
         _settings = settings;
     }

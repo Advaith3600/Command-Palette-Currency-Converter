@@ -8,7 +8,7 @@ using Microsoft.CommandPalette.Extensions.Toolkit;
 
 namespace CurrencyConverterExtension.Helpers
 {
-    public class SettingsManager : JsonSettingsManager
+    public class SettingsManager : JsonSettingsManager, IConversionSettings
     {
         private static readonly string _namespace = "currency-converter";
         private static string Namespaced(string propertyName) => $"{_namespace}.{propertyName}";
