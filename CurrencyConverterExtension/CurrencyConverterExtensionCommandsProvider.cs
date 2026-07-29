@@ -13,6 +13,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
     private readonly ICommandItem[] _commands;
     private readonly SettingsManager _settingsManager = new();
     private readonly AliasManager _aliasManager = new();
+    private readonly PinnedConversionManager _pinManager = new();
 
     public CurrencyConverterExtensionCommandsProvider()
     {
@@ -20,11 +21,12 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Settings = _settingsManager.Settings;
 
-        // Kick off alias loading without blocking the COM constructor (WinRT async).
+        // Kick off alias / pin loading without blocking the COM constructor (WinRT async).
         _ = _aliasManager.EnsureInitializedAsync();
+        _ = _pinManager.EnsureInitializedAsync();
 
         _commands = [
-            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager, _aliasManager)) {
+            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager, _aliasManager, _pinManager)) {
                 Title = DisplayName,
                 Icon = Icon,
                 Subtitle = "Convert real and crypto currencies.",

@@ -5,35 +5,37 @@
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/advaith3600/Command-Palette-Currency-Converter/total)
 ![GitHub Release](https://img.shields.io/github/v/release/advaith3600/Command-Palette-Currency-Converter)
 
-Command Palette extension which will convert real and crypto currencies.
+A [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview) extension for converting between real (fiat) and cryptocurrencies — directly from your launcher.
 
-![Screenshot](screenshots/screenshot1.png)
+![Home](screenshots/home.png)
 
-![Screenshot Settings](screenshots/screenshot-settings.png)
+![Settings](screenshots/settings.png)
 
 ## Installation
 
-This extension supports both **x64** and **ARM** architectures for all installation methods.
+This extension supports both **x64** and **ARM** architectures for all installation methods below.
 
-### Method 1: Through Microsoft Store
+### Method 1: Microsoft Store
 
-You can install the Currency Converter plugin directly from the Microsoft Store. Click the badge below to go to the store page:
+Install Currency Converter directly from the Microsoft Store. Click the badge below to open the store page:
 
 [![Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9PC2T04G3V9C)
 
-### Method 2: Through Winget
+### Method 2: Winget
 
-If you have Winget (Windows Package Manager) installed, you can install the plugin using the following command in your terminal:
+If you have [Winget](https://learn.microsoft.com/windows/package-manager/winget/) (Windows Package Manager) installed, run:
 
 ```
 winget install advaith.CurrencyConverterCommandPalette
 ```
 
-### Method 3: From MSIX Files
+### Method 3: MSIX from GitHub Releases
 
-You can download the MSIX files from the [Releases](https://github.com/advaith3600/Command-Palette-Currency-Converter/releases) page on GitHub. Choose the appropriate file for your architecture (**x64** or **ARM**) and install it manually.
+Download the MSIX package from the [Releases](https://github.com/advaith3600/Command-Palette-Currency-Converter/releases) page. Choose the file that matches your architecture (**x64** or **ARM**) and install it manually.
 
 ## Usage
+
+Type a conversion in natural language. Currency codes, symbols, and mixed styles all work:
 
 ```
 100 inr to usd
@@ -48,72 +50,83 @@ $100 to eur
 100$ to euro
 ```
 
-![Screenshot](screenshots/screenshot-demo.png)
-
 ### Crypto and other currencies
 
-This plugin also converters real currencies to crypto currencies and vice versa. Refer [here](https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json) for the full list of available conversions.
-
-Example Usage:
+You can convert between fiat and cryptocurrencies in either direction. See the [full list of supported currencies](https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json).
 
 ```
 1 btc to usd
+1209 btc to usd
 ```
 
-![Screenshot](screenshots/screenshot3.png)
+![Crypto conversion](screenshots/conversion-crypto.png)
 
-### Quick Conversions
+### Quick conversions
 
-You can swiftly convert from your local currency to another currency simply by typing the number. The settings allow you to change both the local and all other currencies.
+Type just a number to convert from your local currency into the other currencies configured in Settings. You can change both the local currency and the list of target currencies there.
 
 ```
 102.2
+$1209
 ```
 
-![Screenshot](screenshots/screenshot2.png)
+![Quick conversion](screenshots/conversion-quick.png)
+
+### Today's rates
+
+Open **Today's rates** from the main page (when the search box is empty) to see live conversions of `1` unit of your local currency into each of your other currencies from Settings.
+
+You can also search for a specific conversion (for example `34 btc to aed`) and press **Enter** to pin it. Pinned conversions appear at the top of the page with live rates the next time you open it. Unpin with `Ctrl + Enter`.
+
+If your local currency matches every currency in the other-currencies list, a warning is shown instead of the default rates — press **Enter** on it to open Settings and add a different currency.
+
+![Today's rates](screenshots/todays-rates.png)
 
 ### Output formatting and precision
 
-The plugin supports two modes of output:
+The extension supports two output styles:
 
-1. Short Text: The output will only contain the target currency.
-2. Full Text: The output will contain both the source and target currencies.
+1. **Short text** — only the target currency (e.g. `1.86 EUR`)
+2. **Full text** — both source and target (e.g. `2 USD = 1.86 EUR`)
 
-The plugin outputs values using dynamic precision. This means that if a value is less than 1, the number of non-zero decimals displayed will be exactly as the system configuration.
+Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
 
-### Mathematical Calculations
+### Mathematical calculations
 
-You can input mathematical expressions, and the plugin will evaluate them using the BODMAS rule. The permitted operations are `+` (addition), `-` (subtraction), `*` (multiplication), and `/` (division). The use of brackets is also supported.
+You can type a math expression and the extension will evaluate it using BODMAS/PEMDAS before converting. Supported operators are `+`, `-`, `*`, and `/`, including brackets:
 
-![Screenshot](screenshots/screenshot3.png)
+```
+(12.4 - 34) / 3.3 + 43.3 * 2.22
+```
 
-## Aliasing
+![Math expression conversion](screenshots/conversion-math.png)
 
-View, create and remove aliases directly from the alias page. You can export your alias configuration to your downloads folder or reset all the aliases.
+## Aliases
 
-You can remove currencies by pressing `Ctrl + Enter` and confirming the prompt
+Open the aliases page to view, create, and remove currency aliases. You can export your alias configuration to your Downloads folder, or reset all aliases to the built-in defaults.
 
-![Screenshot](screenshots/screenshot4.png)
+Remove an alias by selecting it and pressing `Ctrl + Enter`, then confirming the prompt.
 
-![Screenshot](screenshots/screenshot5.png)
+![Manage aliases](screenshots/aliases.png)
+
+![Create alias](screenshots/aliases-create.png)
 
 ## Conversion API
 
-This plugin internally uses various APIs for the latest conversion rates:
+This extension uses third-party APIs for the latest conversion rates:
 
 1. **Default: [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api)**
-   - This API is refreshed every day at midnight.
-   - It is **free** and **unlimited**, and therefore no API key is required.
-   - **Important:** Do not change from the default unless it is absolutely necessary. The default API provides reliable daily updates and does not require any additional setup.
+   - Refreshed every day at midnight.
+   - **Free** and **unlimited** — no API key required.
+   - **Important:** Keep the default API unless you have a strong reason to switch. It updates daily and needs no extra setup.
 
 2. **[ExchangeRateAPI](https://www.exchangerate-api.com/)**
-   - Updates: The ExchangeRateAPI is updated frequently throughout the day. You can read more about it [here](https://www.exchangerate-api.com/#pricing).
-   - Free Tier: Offers a free tier that allows for 1,500 requests per month.
-   - Note: This API does not support cryptocurrency conversions.
-   - Details: Please refer to the CurrencyAPI documentation for specific details on update frequency, pricing, and supported features.
+   - Updated frequently throughout the day ([pricing](https://www.exchangerate-api.com/#pricing)).
+   - Free tier: 1,500 requests per month.
+   - Does **not** support cryptocurrency conversions.
 
 3. **[CurrencyAPI](https://currencyapi.com)**
-   - Updates: The CurrencyAPI is updated frequently throughout the day. You can read more about it [here](https://currencyapi.com/pricing/).
-   - Details: Please refer to the CurrencyAPI documentation for specific details on update frequency, pricing, and supported features.
+   - Updated frequently throughout the day ([pricing](https://currencyapi.com/pricing/)).
+   - See their documentation for update frequency, pricing, and supported features.
 
-**Please Note:** None of the APIs mentioned above are directly associated with this plugin. If you wish to use any other API for conversion rates or have suggestions for new APIs, please open a pull request (PR) to propose adding it to the plugin.
+None of these APIs are affiliated with this extension. To use a different rate provider, or to suggest a new one, open a pull request.

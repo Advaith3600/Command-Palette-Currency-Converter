@@ -19,6 +19,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
     internal readonly AliasManager _aliasManager;
+    internal readonly PinnedConversionManager _pinManager;
 
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
@@ -26,7 +27,10 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     private CancellationTokenSource? _debounceCts;
     private CancellationTokenSource? _conversionCts;
 
-    public CurrencyConverterExtensionPage(SettingsManager settings, AliasManager aliasManager)
+    public CurrencyConverterExtensionPage(
+        SettingsManager settings,
+        AliasManager aliasManager,
+        PinnedConversionManager pinManager)
     {
         Icon = IconManager.Icon;
         Title = "Currency Converter";
@@ -34,6 +38,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
         _settings = settings;
         _aliasManager = aliasManager;
+        _pinManager = pinManager;
         _converter = new(_settings, aliasManager);
     }
 
@@ -64,6 +69,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     private IListItem[] FallbackItems()
     {
         return [
+            new ListItem(new CurrencyConverterTodaysRatesPage(_settings, _aliasManager, _pinManager)) {
+                Title = "Today's rates",
+                Subtitle = "1 local currency to your other currencies, plus pinned conversions",
+                Icon = Icon,
+            },
             new ListItem(new CurrencyConverterAliasPage(_aliasManager)) {
                 Title = "Manage currency aliases",
                 Subtitle = "View, create and remove your aliases",

@@ -12,6 +12,14 @@ using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Converter;
 
+internal sealed record ConversionOutcome(
+    ListItem Item,
+    bool IsSuccess,
+    decimal Amount,
+    string FromCurrency,
+    string ToCurrency,
+    string ToFormatted);
+
 internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, string To)>
 {
     public bool Equals((string From, string To) x, (string From, string To) y)
@@ -56,7 +64,21 @@ internal sealed partial class CurrencyConverter : IDisposable
         string toCurrency,
         CancellationToken cancellationToken = default)
     {
-        List<(int index, Task<ListItem?> task)> conversionTasks = [];
+        List<ConversionOutcome> outcomes = await GetConversionOutcomesAsync(
+            amountToConvert,
+            fromCurrency,
+            toCurrency,
+            cancellationToken).ConfigureAwait(false);
+        return [.. outcomes.Select(o => o.Item)];
+    }
+
+    public async Task<List<ConversionOutcome>> GetConversionOutcomesAsync(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken = default)
+    {
+        List<(int index, Task<ConversionOutcome?> task)> conversionTasks = [];
         int index = 0;
 
         if (string.IsNullOrEmpty(fromCurrency))
@@ -116,7 +138,7 @@ internal sealed partial class CurrencyConverter : IDisposable
 
         await Task.WhenAll(conversionTasks.Select(t => t.task)).ConfigureAwait(false);
 
-        var results = new ListItem?[conversionTasks.Count];
+        var results = new ConversionOutcome?[conversionTasks.Count];
         foreach (var task in conversionTasks)
         {
             results[task.index] = await task.task.ConfigureAwait(false);
@@ -125,7 +147,7 @@ internal sealed partial class CurrencyConverter : IDisposable
         return results.Where(r => r != null).Select(r => r!).ToList();
     }
 
-    private async Task<ListItem?> GetConversionAsync(
+    private async Task<ConversionOutcome?> GetConversionAsync(
         decimal amountToConvert,
         string fromCurrency,
         string toCurrency,
@@ -150,19 +172,14 @@ internal sealed partial class CurrencyConverter : IDisposable
             string compressedOutput = $"{toFormatted} {toCurrency.ToUpperInvariant()}";
             string expandedOutput = $"{fromFormatted} {fromCurrency.ToUpperInvariant()} = {toFormatted} {toCurrency.ToUpperInvariant()}";
 
-            return new ListItem(new CopyTextCommand(toFormatted)
-            {
-                Result = CommandResult.ShowToast(new ToastArgs()
-                {
-                    Message = "Copied to clipboard",
-                    Result = CommandResult.Hide()
-                })
-            })
+            ListItem item = new(CreateCopyCommand(toFormatted))
             {
                 Title = _settings.OutputStyle == 0 ? compressedOutput : expandedOutput,
                 Subtitle = $"Currency conversion from {fromCurrency.ToUpperInvariant()} to {toCurrency.ToUpperInvariant()}",
                 Icon = IconManager.Icon,
             };
+
+            return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted);
         }
         catch (OperationCanceledException)
         {
@@ -170,21 +187,55 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
         catch (HttpRequestException)
         {
-            return CreateErrorItem("Unable to reach the conversion service", "Press enter or click to open the currencies list");
+            return new ConversionOutcome(
+                CreateErrorItem("Unable to reach the conversion service", "Press enter or click to open the currencies list"),
+                false,
+                amountToConvert,
+                fromCurrency,
+                toCurrency,
+                string.Empty);
         }
         catch (JsonException)
         {
-            return CreateErrorItem("Received an invalid response from the conversion service", "Press enter or click to open the currencies list");
+            return new ConversionOutcome(
+                CreateErrorItem("Received an invalid response from the conversion service", "Press enter or click to open the currencies list"),
+                false,
+                amountToConvert,
+                fromCurrency,
+                toCurrency,
+                string.Empty);
         }
         catch (InvalidOperationException e)
         {
-            return CreateErrorItem(e.Message, "Press enter or click to open the currencies list");
+            return new ConversionOutcome(
+                CreateErrorItem(e.Message, "Press enter or click to open the currencies list"),
+                false,
+                amountToConvert,
+                fromCurrency,
+                toCurrency,
+                string.Empty);
         }
         catch (Exception)
         {
-            return CreateErrorItem("Something went wrong while converting currencies", "Press enter or click to open the currencies list");
+            return new ConversionOutcome(
+                CreateErrorItem("Something went wrong while converting currencies", "Press enter or click to open the currencies list"),
+                false,
+                amountToConvert,
+                fromCurrency,
+                toCurrency,
+                string.Empty);
         }
     }
+
+    internal static CopyTextCommand CreateCopyCommand(string text) =>
+        new(text)
+        {
+            Result = CommandResult.ShowToast(new ToastArgs()
+            {
+                Message = "Copied to clipboard",
+                Result = CommandResult.Hide()
+            })
+        };
 
     private ListItem CreateErrorItem(string title, string subtitle) =>
         new(new OpenUrlCommand(_converterSettings.GetHelperLink()))
