@@ -27,14 +27,15 @@ public class AliasManagerTests
         Assert.False(manager.ValidateKeyFormat(key));
     }
 
-    [Fact]
-    public void ValidateKeyFormat_CurrentRegexAllowsDigitsAndMixedContent()
+    [Theory]
+    [InlineData("usd123")]
+    [InlineData("!!!")]
+    [InlineData("123")]
+    [InlineData("ab cd")]
+    public void ValidateKeyFormat_RejectsKeysWithInvalidCharacters(string key)
     {
-        // KeyRegex uses * with unanchored Match so optional "to" groups work in QueryParser;
-        // ValidateKeyFormat still rejects blank keys via IsNullOrWhiteSpace.
         var manager = new AliasManager();
-        Assert.True(manager.ValidateKeyFormat("usd123"));
-        Assert.True(manager.ValidateKeyFormat("!!!"));
+        Assert.False(manager.ValidateKeyFormat(key));
     }
 
     [Fact]

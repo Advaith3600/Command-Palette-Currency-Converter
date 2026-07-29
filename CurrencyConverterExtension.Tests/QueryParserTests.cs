@@ -1,4 +1,5 @@
 using CurrencyConverterExtension.Converter;
+using CurrencyConverterExtension.Helpers;
 
 namespace CurrencyConverterExtension.Tests;
 
@@ -75,5 +76,39 @@ public class QueryParserTests
 
         Assert.Equal(QueryParseStatus.Success, result.Status);
         Assert.Equal(10.5m, result.Query!.Value.Amount);
+    }
+
+    [Theory]
+    [InlineData("usd")]
+    [InlineData("my_alias")]
+    [InlineData("$")]
+    [InlineData("\u20AC")]
+    public void Parse_AgreementWithAliasValidation_ForValidKeys(string currencyToken)
+    {
+        var aliasManager = new AliasManager();
+        Assert.True(aliasManager.ValidateKeyFormat(currencyToken), "Test precondition failed");
+
+        // Keep formatting simple: integer amount + explicit "to" clause.
+        string search = currencyToken == "\u20AC"
+            ? $"100{currencyToken} to inr"
+            : $"100 {currencyToken} to inr";
+
+        QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal("inr", result.Query!.Value.ToCurrency);
+        Assert.Equal(currencyToken.ToLowerInvariant(), result.Query.Value.FromCurrency);
+    }
+
+    [Theory]
+    [InlineData("usd123")]
+    [InlineData("!!!")]
+    public void Parse_AgreementWithAliasValidation_ForInvalidKeys_ReturnsNoMatch(string currencyToken)
+    {
+        var aliasManager = new AliasManager();
+        Assert.False(aliasManager.ValidateKeyFormat(currencyToken));
+
+        string search = $"100 {currencyToken} to inr";
+        QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);
+        Assert.Equal(QueryParseStatus.NoMatch, result.Status);
     }
 }

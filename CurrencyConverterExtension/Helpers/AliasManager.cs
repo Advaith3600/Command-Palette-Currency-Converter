@@ -12,10 +12,11 @@ namespace CurrencyConverterExtension.Helpers
     internal class AliasManager
     {
         // Character class for currency/alias tokens in queries and forms.
-        // Uses * (zero or more) so QueryParser can treat "to" as optional; ValidateKeyFormat
-        // separately rejects null/whitespace keys via IsNullOrWhiteSpace.
+        // Uses * (zero or more) so QueryParser can treat "to" as optional.
         // Match is intentionally unanchored — keys may appear as prefixes within larger strings.
         public const string KeyRegex = @"[\p{L}\p{Sc}_]*";
+
+        private const string ValidationKeyRegex = @"^[\p{L}\p{Sc}_]+$";
 
         private const string AliasFileName = "currency_alias.json";
         private readonly object _gate = new();
@@ -40,7 +41,7 @@ namespace CurrencyConverterExtension.Helpers
             _initialized = true;
         }
 
-        public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.Match(key, KeyRegex).Success;
+        public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.IsMatch(key, ValidationKeyRegex);
 
         public Task EnsureInitializedAsync()
         {
@@ -57,8 +58,20 @@ namespace CurrencyConverterExtension.Helpers
 
         private async Task InitializeCoreAsync()
         {
-            await InitializeAsync().ConfigureAwait(false);
-            _initialized = true;
+            try
+            {
+                await InitializeAsync().ConfigureAwait(false);
+                _initialized = true;
+            }
+            catch
+            {
+                lock (_initGate)
+                {
+                    _initTask = null;
+                }
+
+                throw;
+            }
         }
 
         public async Task InitializeAsync()

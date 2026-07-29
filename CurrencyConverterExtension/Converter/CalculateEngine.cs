@@ -75,6 +75,13 @@ public static class CalculateEngine
             }
             else if (expression[i] == '(')
             {
+                if (sign == -1)
+                {
+                    values.Push(0);
+                    ops.Push('-');
+                    sign = 1;
+                }
+
                 ops.Push(expression[i]);
                 expectOperand = true;
             }

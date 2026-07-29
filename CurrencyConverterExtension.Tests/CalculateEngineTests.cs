@@ -83,4 +83,25 @@ public class CalculateEngineTests
         decimal result = CalculateEngine.Evaluate("10*-5", DotFormatter());
         Assert.Equal(-50m, result);
     }
+
+    [Fact]
+    public void Evaluate_SupportsUnaryMinusBeforeParentheses()
+    {
+        decimal result = CalculateEngine.Evaluate("-(1+2)", DotFormatter());
+        Assert.Equal(-3m, result);
+    }
+
+    [Fact]
+    public void Evaluate_SupportsUnaryMinusBeforeNestedParentheses()
+    {
+        decimal result = CalculateEngine.Evaluate("-((2+3)*4)", DotFormatter());
+        Assert.Equal(-20m, result);
+    }
+
+    [Fact]
+    public void Evaluate_SupportsUnaryMinusBeforeParenthesesInExpression()
+    {
+        decimal result = CalculateEngine.Evaluate("10 + -(3+2)", DotFormatter());
+        Assert.Equal(5m, result);
+    }
 }

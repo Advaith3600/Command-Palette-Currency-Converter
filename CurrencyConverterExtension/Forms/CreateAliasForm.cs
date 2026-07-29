@@ -78,28 +78,9 @@ namespace CurrencyConverterExtension.Forms
             alias = alias.ToLowerInvariant();
             currency = currency.ToLowerInvariant();
 
-            try
-            {
-                Task.Run(async () =>
-                {
-                    await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
-                }).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                new ToastStatusMessage($"Failed to load aliases: {ex.Message}").Show();
-                return CommandResult.KeepOpen();
-            }
-
             if (!_aliasManager.ValidateKeyFormat(alias))
             {
                 new ToastStatusMessage("Alias Key is invalid").Show();
-                return CommandResult.KeepOpen();
-            }
-
-            if (_aliasManager.GetAlias(alias) != null)
-            {
-                new ToastStatusMessage("Alias already exists").Show();
                 return CommandResult.KeepOpen();
             }
 
@@ -109,19 +90,28 @@ namespace CurrencyConverterExtension.Forms
                 return CommandResult.KeepOpen();
             }
 
-            try
+            string capturedAlias = alias;
+            string capturedCurrency = currency;
+            _ = Task.Run(async () =>
             {
-                Task.Run(async () =>
+                try
                 {
-                    await _aliasManager.SetAliasAsync(alias, currency).ConfigureAwait(false);
-                }).GetAwaiter().GetResult();
+                    await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
 
-                new ToastStatusMessage($"Alias '{alias}' => '{currency}' created").Show();
-            }
-            catch (Exception ex)
-            {
-                new ToastStatusMessage($"Failed to create alias: {ex.Message}").Show();
-            }
+                    if (_aliasManager.GetAlias(capturedAlias) != null)
+                    {
+                        new ToastStatusMessage("Alias already exists").Show();
+                        return;
+                    }
+
+                    await _aliasManager.SetAliasAsync(capturedAlias, capturedCurrency).ConfigureAwait(false);
+                    new ToastStatusMessage($"Alias '{capturedAlias}' => '{capturedCurrency}' created").Show();
+                }
+                catch (Exception ex)
+                {
+                    new ToastStatusMessage($"Failed to create alias: {ex.Message}").Show();
+                }
+            });
 
             // TODO: When GoToPage is implemented, navigate back to alias page
             // https://github.com/microsoft/PowerToys/issues/38338
