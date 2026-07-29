@@ -20,7 +20,8 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Settings = _settingsManager.Settings;
 
-        _aliasManager.InitializeAsync().Wait();
+        // Kick off alias loading without blocking the COM constructor (WinRT async).
+        _ = _aliasManager.EnsureInitializedAsync();
 
         _commands = [
             new CommandItem(new CurrencyConverterExtensionPage(_settingsManager, _aliasManager)) {

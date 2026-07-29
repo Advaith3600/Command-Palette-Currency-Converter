@@ -10,12 +10,17 @@
     <IsTestProject>true</IsTestProject>
     <NoWarn>$(NoWarn);CA1707</NoWarn>
     <Platforms>x64;ARM64</Platforms>
+    <!-- xunit.v3 makes this an executable; keep framework-dependent for ProjectReference. -->
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
@@ -25,7 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CurrencyConverterExtension\CurrencyConverterExtension.csproj">
-      <AdditionalProperties>GenerateAppxPackageOnBuild=false;EnableMsixTooling=false</AdditionalProperties>
+      <AdditionalProperties>GenerateAppxPackageOnBuild=false;EnableMsixTooling=false;SelfContained=false;PublishProfile=</AdditionalProperties>
     </ProjectReference>
   </ItemGroup>
 

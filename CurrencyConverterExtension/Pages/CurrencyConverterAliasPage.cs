@@ -2,6 +2,7 @@
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,32 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
 
     public override IListItem[] GetItems()
     {
+        if (!_aliasManager.IsInitialized)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+                    RaiseItemsChanged();
+                }
+                catch (Exception ex)
+                {
+                    new ToastStatusMessage($"Failed to load aliases: {ex.Message}").Show();
+                }
+            });
+
+            return
+            [
+                new ListItem(new NoOpCommand())
+                {
+                    Title = "Loading aliases…",
+                    Subtitle = "Please wait",
+                    Icon = Icon,
+                }
+            ];
+        }
+
         List<IListItem> items = new();
 
         items.Add(new ListItem(new CurrencyConverterCreateAliasPage(_aliasManager))
@@ -44,9 +71,17 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
                 {
                     _ = Task.Run(async () =>
                     {
-                        await _aliasManager.ResetToDefaultAsync().ConfigureAwait(false);
-                        RaiseItemsChanged();
-                        new ToastStatusMessage("Aliases reset to default.").Show();
+                        try
+                        {
+                            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+                            await _aliasManager.ResetToDefaultAsync().ConfigureAwait(false);
+                            RaiseItemsChanged();
+                            new ToastStatusMessage("Aliases reset to default.").Show();
+                        }
+                        catch (Exception ex)
+                        {
+                            new ToastStatusMessage($"Failed to reset aliases: {ex.Message}").Show();
+                        }
                     });
                 })
                 {
@@ -65,8 +100,16 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
         {
             _ = Task.Run(async () =>
             {
-                string path = await _aliasManager.ExportAliasesAsync().ConfigureAwait(false);
-                new ToastStatusMessage($"Aliases exported to {path}").Show();
+                try
+                {
+                    await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+                    string path = await _aliasManager.ExportAliasesAsync().ConfigureAwait(false);
+                    new ToastStatusMessage($"Aliases exported to {path}").Show();
+                }
+                catch (Exception ex)
+                {
+                    new ToastStatusMessage($"Failed to export aliases: {ex.Message}").Show();
+                }
             });
         })
         {

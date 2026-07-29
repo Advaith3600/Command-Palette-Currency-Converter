@@ -1,7 +1,6 @@
 ﻿using CurrencyConverterExtension.Helpers;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text.Json;
 
 namespace CurrencyConverterExtension.Converter;
@@ -48,7 +47,7 @@ public class ConverterSettings
     private string ParseLink(string link, string from, string to) => link
         .Replace("{api_key}", _settings.ConversionAPIKey)
         .Replace("{date}", ConversionDate)
-        .Replace("{from}", _settings.ConversionAPI == (int)ConverterSettingsEnum.CurrencyAPI ? from.ToUpper(CultureInfo.CurrentCulture) : from)
+        .Replace("{from}", _settings.ConversionAPI == (int)ConverterSettingsEnum.CurrencyAPI ? from.ToUpperInvariant() : from)
         .Replace("{to}", to);
     private Dictionary<string, string> GetOption() => _options[((ConverterSettingsEnum)_settings.ConversionAPI).ToString()];
 
@@ -59,7 +58,7 @@ public class ConverterSettings
     private void EnsureConversionAPIKey()
     {
         if (string.IsNullOrEmpty(_settings.ConversionAPIKey))
-            throw new Exception("Conversion API Key is not provided");
+            throw new InvalidOperationException("Conversion API Key is not provided");
     }
 
     internal void ValidateConversionAPI()
@@ -82,7 +81,7 @@ public class ConverterSettings
             case (int)ConverterSettingsEnum.CurrencyAPI: return GetProperty("data");
         }
 
-        throw new Exception("Invalid Conversion API selected.");
+        throw new InvalidOperationException("Invalid Conversion API selected.");
     }
 
     internal (string, decimal) GetRateFor(JsonProperty property)

@@ -1,6 +1,8 @@
 ﻿using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Forms
 {
@@ -73,6 +75,22 @@ namespace CurrencyConverterExtension.Forms
                 return CommandResult.KeepOpen();
             }
 
+            alias = alias.ToLowerInvariant();
+            currency = currency.ToLowerInvariant();
+
+            try
+            {
+                Task.Run(async () =>
+                {
+                    await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+                }).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                new ToastStatusMessage($"Failed to load aliases: {ex.Message}").Show();
+                return CommandResult.KeepOpen();
+            }
+
             if (!_aliasManager.ValidateKeyFormat(alias))
             {
                 new ToastStatusMessage("Alias Key is invalid").Show();
@@ -91,8 +109,20 @@ namespace CurrencyConverterExtension.Forms
                 return CommandResult.KeepOpen();
             }
 
-            _aliasManager.SetAliasAsync(alias, currency).GetAwaiter().GetResult();
-            new ToastStatusMessage($"Alias '{alias}' => '{currency}' created").Show();
+            try
+            {
+                Task.Run(async () =>
+                {
+                    await _aliasManager.SetAliasAsync(alias, currency).ConfigureAwait(false);
+                }).GetAwaiter().GetResult();
+
+                new ToastStatusMessage($"Alias '{alias}' => '{currency}' created").Show();
+            }
+            catch (Exception ex)
+            {
+                new ToastStatusMessage($"Failed to create alias: {ex.Message}").Show();
+            }
+
             // TODO: When GoToPage is implemented, navigate back to alias page
             // https://github.com/microsoft/PowerToys/issues/38338
             return CommandResult.KeepOpen();

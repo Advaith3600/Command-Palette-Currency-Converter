@@ -11,11 +11,20 @@ namespace CurrencyConverterExtension.Helpers
 {
     internal class AliasManager
     {
-        // Require at least one character; allow letters, numbers, currency symbols, and underscores.
+        // Character class for currency/alias tokens in queries and forms.
+        // Uses * (zero or more) so QueryParser can treat "to" as optional; ValidateKeyFormat
+        // separately rejects null/whitespace keys via IsNullOrWhiteSpace.
+        // Match is intentionally unanchored — keys may appear as prefixes within larger strings.
         public const string KeyRegex = @"[\p{L}\p{Sc}_]*";
 
         private const string AliasFileName = "currency_alias.json";
+        private readonly object _gate = new();
+        private readonly object _initGate = new();
         private Dictionary<string, string> aliases;
+        private bool _initialized;
+        private Task? _initTask;
+
+        public bool IsInitialized => _initialized;
 
         public AliasManager()
         {
@@ -24,15 +33,38 @@ namespace CurrencyConverterExtension.Helpers
 
         internal AliasManager(Dictionary<string, string> aliases)
         {
-            this.aliases = aliases;
+            this.aliases = aliases.ToDictionary(
+                kvp => NormalizeKey(kvp.Key),
+                kvp => kvp.Value,
+                StringComparer.Ordinal);
+            _initialized = true;
         }
 
         public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.Match(key, KeyRegex).Success;
 
+        public Task EnsureInitializedAsync()
+        {
+            if (_initialized)
+            {
+                return Task.CompletedTask;
+            }
+
+            lock (_initGate)
+            {
+                return _initTask ??= InitializeCoreAsync();
+            }
+        }
+
+        private async Task InitializeCoreAsync()
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            _initialized = true;
+        }
+
         public async Task InitializeAsync()
         {
-            await EnsureAliasFileExistsAsync();
-            await LoadAliasesAsync();
+            await EnsureAliasFileExistsAsync().ConfigureAwait(false);
+            await LoadAliasesAsync().ConfigureAwait(false);
         }
 
         private async Task EnsureAliasFileExistsAsync()
@@ -55,36 +87,66 @@ namespace CurrencyConverterExtension.Helpers
             string jsonText = await FileIO.ReadTextAsync(aliasFile);
 
             JsonObject jsonObject = JsonObject.Parse(jsonText);
-            foreach (var key in jsonObject.Keys)
+            lock (_gate)
             {
-                aliases[key] = jsonObject[key].GetString();
+                aliases.Clear();
+                foreach (var key in jsonObject.Keys)
+                {
+                    aliases[NormalizeKey(key)] = jsonObject[key].GetString();
+                }
             }
         }
 
-        public bool HasAlias(string currencyCode) => aliases.ContainsKey(currencyCode);
+        public bool HasAlias(string currencyCode)
+        {
+            lock (_gate)
+            {
+                return aliases.ContainsKey(NormalizeKey(currencyCode));
+            }
+        }
 
         public string? GetAlias(string currencyCode)
         {
-            if (aliases.TryGetValue(currencyCode, out string alias))
+            lock (_gate)
             {
-                return alias;
+                if (aliases.TryGetValue(NormalizeKey(currencyCode), out string alias))
+                {
+                    return alias;
+                }
             }
+
             return null;
         }
 
-        public Dictionary<string, string> GetAllAliases() => aliases;
+        public Dictionary<string, string> GetAllAliases()
+        {
+            lock (_gate)
+            {
+                return new Dictionary<string, string>(aliases);
+            }
+        }
 
         public async Task SetAliasAsync(string currencyCode, string alias)
         {
-            aliases[currencyCode] = alias;
-            await SaveAliasesAsync();
+            lock (_gate)
+            {
+                aliases[NormalizeKey(currencyCode)] = alias;
+            }
+
+            await SaveAliasesAsync().ConfigureAwait(false);
         }
 
         public async Task RemoveAliasAsync(string currencyCode)
         {
-            if (aliases.Remove(currencyCode))
+            bool removed;
+            lock (_gate)
             {
-                await SaveAliasesAsync();
+                removed = aliases.Remove(NormalizeKey(currencyCode));
+            }
+
+            if (removed)
+            {
+                await SaveAliasesAsync().ConfigureAwait(false);
             }
         }
 
@@ -100,7 +162,13 @@ namespace CurrencyConverterExtension.Helpers
         private string GetAliasesJson()
         {
             JsonObject jsonObject = new JsonObject();
-            foreach (var kvp in aliases.OrderBy(k => k.Key))
+            List<KeyValuePair<string, string>> ordered;
+            lock (_gate)
+            {
+                ordered = aliases.OrderBy(k => k.Key).ToList();
+            }
+
+            foreach (var kvp in ordered)
             {
                 jsonObject[kvp.Key] = JsonValue.CreateStringValue(kvp.Value);
             }
@@ -113,7 +181,7 @@ namespace CurrencyConverterExtension.Helpers
             StorageFolder roamingFolder = ApplicationData.Current.RoamingFolder;
             StorageFile defaultAliasFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///alias.default.json"));
             await defaultAliasFile.CopyAsync(roamingFolder, AliasFileName, NameCollisionOption.ReplaceExisting);
-            await LoadAliasesAsync();
+            await LoadAliasesAsync().ConfigureAwait(false);
         }
 
         public async Task<string> ExportAliasesAsync()
@@ -123,8 +191,10 @@ namespace CurrencyConverterExtension.Helpers
             string pathDownload = Path.Combine(pathUser, "Downloads");
             Directory.CreateDirectory(pathDownload);
             string filePath = Path.Combine(pathDownload, fileName);
-            File.WriteAllText(filePath, GetAliasesJson());
+            await File.WriteAllTextAsync(filePath, GetAliasesJson()).ConfigureAwait(false);
             return filePath;
         }
+
+        private static string NormalizeKey(string key) => key.ToLowerInvariant();
     }
 }

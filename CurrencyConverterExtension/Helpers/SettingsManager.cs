@@ -83,14 +83,27 @@ namespace CurrencyConverterExtension.Helpers
             Resources.api_key_description,
             "");
 
-        public int OutputStyle => int.Parse(_outputStyle.Value);
-        public int DecimalSeparator => int.Parse(_decimalSeparator.Value);
-        public int ConversionDirection => int.Parse(_conversionDirection.Value);
-        public string LocalCurrency => _localCurrency.Value;
-        public string[] Currencies => _currencies.Value.Split(',').Select(x => x.Trim()).ToArray();
-        public double ConversionCacheDuration => Math.Min(Math.Max(double.Parse(_conversionCacheDuration.Value), 0.5), 24);
-        public int ConversionAPI => int.Parse(_conversionAPI.Value);
-        public string ConversionAPIKey => _conversionAPIKey.Value;
+        public int OutputStyle => int.TryParse(_outputStyle.Value, out int outputStyle) ? outputStyle : 1;
+        public int DecimalSeparator => int.TryParse(_decimalSeparator.Value, out int decimalSeparator) ? decimalSeparator : 0;
+        public int ConversionDirection => int.TryParse(_conversionDirection.Value, out int conversionDirection) ? conversionDirection : 0;
+        public string LocalCurrency => string.IsNullOrWhiteSpace(_localCurrency.Value)
+            ? new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol
+            : _localCurrency.Value;
+        public string[] Currencies => string.IsNullOrWhiteSpace(_currencies.Value)
+            ? ["USD"]
+            : [.. _currencies.Value.Split(',').Select(x => x.Trim()).Where(x => x.Length > 0)];
+        public double ConversionCacheDuration
+        {
+            get
+            {
+                double duration = double.TryParse(_conversionCacheDuration.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
+                    ? parsed
+                    : 3;
+                return Math.Min(Math.Max(duration, 0.5), 24);
+            }
+        }
+        public int ConversionAPI => int.TryParse(_conversionAPI.Value, out int conversionApi) ? conversionApi : 0;
+        public string ConversionAPIKey => _conversionAPIKey.Value ?? string.Empty;
 
         internal static string SettingsJsonPath()
         {

@@ -69,4 +69,18 @@ public class CalculateEngineTests
     {
         Assert.ThrowsAny<Exception>(() => CalculateEngine.Evaluate("(10 + 2", DotFormatter()));
     }
+
+    [Fact]
+    public void Evaluate_SupportsUnaryMinus()
+    {
+        decimal result = CalculateEngine.Evaluate("-100 + 20", DotFormatter());
+        Assert.Equal(-80m, result);
+    }
+
+    [Fact]
+    public void Evaluate_SupportsUnaryMinusAfterOperator()
+    {
+        decimal result = CalculateEngine.Evaluate("10*-5", DotFormatter());
+        Assert.Equal(-50m, result);
+    }
 }

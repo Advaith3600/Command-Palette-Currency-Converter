@@ -30,7 +30,8 @@ public class AliasManagerTests
     [Fact]
     public void ValidateKeyFormat_CurrentRegexAllowsDigitsAndMixedContent()
     {
-        // KeyRegex uses * with Match (not full-string ^...$), so this documents current behavior.
+        // KeyRegex uses * with unanchored Match so optional "to" groups work in QueryParser;
+        // ValidateKeyFormat still rejects blank keys via IsNullOrWhiteSpace.
         var manager = new AliasManager();
         Assert.True(manager.ValidateKeyFormat("usd123"));
         Assert.True(manager.ValidateKeyFormat("!!!"));
@@ -42,7 +43,7 @@ public class AliasManagerTests
         var manager = new AliasManager(new Dictionary<string, string>
         {
             ["$"] = "usd",
-            ["euro"] = "eur",
+            ["Euro"] = "eur",
         });
 
         Assert.True(manager.HasAlias("$"));
@@ -54,12 +55,13 @@ public class AliasManagerTests
     }
 
     [Fact]
-    public void GetAllAliases_ReturnsSeededDictionary()
+    public void GetAllAliases_ReturnsSnapshotCopy()
     {
         var aliases = new Dictionary<string, string> { ["$"] = "usd" };
         var manager = new AliasManager(aliases);
 
-        Assert.Same(aliases, manager.GetAllAliases());
-        Assert.Equal("usd", manager.GetAllAliases()["$"]);
+        Dictionary<string, string> snapshot = manager.GetAllAliases();
+        Assert.NotSame(aliases, snapshot);
+        Assert.Equal("usd", snapshot["$"]);
     }
 }

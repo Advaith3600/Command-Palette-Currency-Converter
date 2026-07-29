@@ -23,6 +23,10 @@
 
   <ItemGroup>
     <Content Include="alias.default.json" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\WarningIcon.png" />
+    <Content Include="Assets\LargeTile.png" />
+    <Content Include="Assets\SmallTile.png" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />

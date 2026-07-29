@@ -44,14 +44,14 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_SinglePair_ReturnsExpandedTitle()
+    public async Task GetConversionResults_SinglePair_ReturnsExpandedTitle()
     {
         var culture = CultureInfo.GetCultureInfo("en-US");
         CultureInfo.CurrentCulture = culture;
 
         using var converter = CreateConverter(new FakeConversionSettings { OutputStyle = 1 });
 
-        var results = converter.GetConversionResults(100m, "usd", "inr");
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
         Assert.Contains("INR", results[0].Title, StringComparison.Ordinal);
@@ -60,12 +60,12 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_CompactOutputStyle_OmitsEquals()
+    public async Task GetConversionResults_CompactOutputStyle_OmitsEquals()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         using var converter = CreateConverter(new FakeConversionSettings { OutputStyle = 0 });
 
-        var results = converter.GetConversionResults(100m, "usd", "inr");
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
         Assert.DoesNotContain("=", results[0].Title, StringComparison.Ordinal);
@@ -73,12 +73,12 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_ResolvesAliases()
+    public async Task GetConversionResults_ResolvesAliases()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         using var converter = CreateConverter();
 
-        var results = converter.GetConversionResults(100m, "$", "euro");
+        var results = await converter.GetConversionResultsAsync(100m, "$", "euro", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
         Assert.Contains("USD", results[0].Subtitle!, StringComparison.OrdinalIgnoreCase);
@@ -86,38 +86,38 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_SameCurrency_ReturnsEmpty()
+    public async Task GetConversionResults_SameCurrency_ReturnsEmpty()
     {
         using var converter = CreateConverter();
 
-        var results = converter.GetConversionResults(100m, "usd", "usd");
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "usd", TestContext.Current.CancellationToken);
 
         Assert.Empty(results);
     }
 
     [Fact]
-    public void GetConversionResults_UsesCacheOnSecondCall()
+    public async Task GetConversionResults_UsesCacheOnSecondCall()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         int requests = 0;
         var handler = CreateDefaultHandler(() => requests++);
         using var converter = CreateConverter(handler: handler);
 
-        _ = converter.GetConversionResults(100m, "usd", "inr");
-        _ = converter.GetConversionResults(200m, "usd", "eur");
+        _ = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+        _ = await converter.GetConversionResultsAsync(200m, "usd", "eur", TestContext.Current.CancellationToken);
 
         Assert.Equal(1, requests);
     }
 
     [Fact]
-    public void GetConversionResults_NotFound_ReturnsErrorItem()
+    public async Task GetConversionResults_NotFound_ReturnsErrorItem()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         var handler = new MockHttpMessageHandler(_ =>
             MockHttpMessageHandler.Json(HttpStatusCode.NotFound, "{}"));
         using var converter = CreateConverter(handler: handler);
 
-        var results = converter.GetConversionResults(100m, "zzz", "usd");
+        var results = await converter.GetConversionResultsAsync(100m, "zzz", "usd", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
         Assert.Contains("ZZZ", results[0].Title, StringComparison.Ordinal);
@@ -125,7 +125,7 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_Non404ThenFallbackSucceeds()
+    public async Task GetConversionResults_Non404ThenFallbackSucceeds()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         int calls = 0;
@@ -141,7 +141,7 @@ public class CurrencyConverterTests
         });
         using var converter = CreateConverter(handler: handler);
 
-        var results = converter.GetConversionResults(100m, "usd", "inr");
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
         Assert.Equal(2, calls);
@@ -149,18 +149,18 @@ public class CurrencyConverterTests
     }
 
     [Fact]
-    public void GetConversionResults_BothCurrenciesSet_ReturnsSingleResult()
+    public async Task GetConversionResults_BothCurrenciesSet_ReturnsSingleResult()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         using var converter = CreateConverter();
 
-        var results = converter.GetConversionResults(50m, "usd", "eur");
+        var results = await converter.GetConversionResultsAsync(50m, "usd", "eur", TestContext.Current.CancellationToken);
 
         Assert.Single(results);
     }
 
     [Fact]
-    public void GetConversionResults_EmptyTo_ConvertsToLocalAndList()
+    public async Task GetConversionResults_EmptyTo_ConvertsToLocalAndList()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         var settings = new FakeConversionSettings
@@ -175,14 +175,14 @@ public class CurrencyConverterTests
             MockHttpMessageHandler.Json(HttpStatusCode.OK, """{"date":"2024-01-01","usd":{"gbp":0.8,"eur":0.9,"inr":80}}"""));
         using var converter = CreateConverter(settings, handler: handler);
 
-        var results = converter.GetConversionResults(100m, "usd", "");
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "", TestContext.Current.CancellationToken);
 
         // local + eur + inr (direction 0 adds local first)
         Assert.Equal(3, results.Count);
     }
 
     [Fact]
-    public void GetConversionResults_EmptyFrom_Direction0_ProducesBothWays()
+    public async Task GetConversionResults_EmptyFrom_Direction0_ProducesBothWays()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         var settings = new FakeConversionSettings
@@ -204,10 +204,30 @@ public class CurrencyConverterTests
         });
         using var converter = CreateConverter(settings, handler: handler);
 
-        var results = converter.GetConversionResults(100m, "", "");
+        var results = await converter.GetConversionResultsAsync(100m, "", "", TestContext.Current.CancellationToken);
 
         // usd->eur and eur->usd
         Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
+    public async Task GetConversionResults_EmptyFromWithTo_ConvertsLocalToTarget()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        var settings = new FakeConversionSettings
+        {
+            LocalCurrency = "usd",
+            Currencies = ["eur", "gbp"],
+            ConversionDirection = 0,
+        };
+
+        using var converter = CreateConverter(settings);
+
+        var results = await converter.GetConversionResultsAsync(100m, "", "inr", TestContext.Current.CancellationToken);
+
+        Assert.Single(results);
+        Assert.Contains("INR", results[0].Title, StringComparison.Ordinal);
+        Assert.Contains("USD", results[0].Title, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -243,6 +263,6 @@ public class CurrencyConverterTests
             ConversionAPIKey = "",
         });
 
-        Assert.Throws<Exception>(() => converter.ValidateConversionAPI());
+        Assert.Throws<InvalidOperationException>(() => converter.ValidateConversionAPI());
     }
 }

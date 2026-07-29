@@ -2,7 +2,6 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using CurrencyConverterExtension.Commands;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
@@ -20,8 +19,12 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
     internal readonly AliasManager _aliasManager;
-    
+
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
+
+    private IListItem[] _items = [];
+    private CancellationTokenSource? _debounceCts;
+    private CancellationTokenSource? _conversionCts;
 
     public CurrencyConverterExtensionPage(SettingsManager settings, AliasManager aliasManager)
     {
@@ -37,32 +40,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     public override IListItem[] GetItems()
     {
         if (SearchText.Length == 0)
+        {
             return FallbackItems();
-
-        IsLoading = true;
-        try
-        {
-            _converter.ValidateConversionAPI();
-        }
-        catch (Exception ex)
-        {
-            return [
-                new ListItem(new OpenUrlCommand(GithubReadmeURL))
-                {
-                    Title = ex.Message,
-                    Subtitle = "Press enter or click to see how to fix this issue",
-                    Icon = IconManager.WarningIcon,
-                }
-            ];
         }
 
-        var results = ParseQuery(SearchText)
-            .Where(x => x != null)
-            .GroupBy(r => new { r.Title, r.Subtitle })
-            .Select(g => g.First());
-
-        IsLoading = false;
-        return [.. results];
+        return _items;
     }
 
     private AnonymousCommand UpdateSearchCommand(string text)
@@ -85,7 +67,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "View, create and remove your aliases",
                 Icon = Icon,
             },
-            
+
             new ListItem(new OpenUrlCommand(GithubReadmeURL))
             {
                 Title = "Start typing to convert currencies",
@@ -140,7 +122,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         ];
     }
 
-    private List<ListItem> ParseQuery(string search)
+    private async Task<List<ListItem>> ParseQueryAsync(string search, CancellationToken cancellationToken)
     {
         var parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
 
@@ -155,10 +137,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                     Icon = IconManager.WarningIcon,
                 }
             ],
-            QueryParseStatus.Success => _converter.GetConversionResults(
+            QueryParseStatus.Success => await _converter.GetConversionResultsAsync(
                 parseResult.Query!.Value.Amount,
                 parseResult.Query.Value.FromCurrency,
-                parseResult.Query.Value.ToCurrency),
+                parseResult.Query.Value.ToCurrency,
+                cancellationToken).ConfigureAwait(false),
             _ => [],
         };
     }
@@ -167,33 +150,103 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         if (oldSearch != newSearch)
         {
-            DebounceSearch(newSearch.Length);
+            _ = DebounceAndConvertAsync(newSearch);
         }
     }
 
-    private CancellationTokenSource? _debounceCts;
-
-    private void DebounceSearch(int searchLength)
+    private async Task DebounceAndConvertAsync(string search)
     {
-        // Cancel any ongoing debounce task
-        _debounceCts?.Cancel();
-        _debounceCts = new CancellationTokenSource();
+        CancellationTokenSource debounceCts = new();
+        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, debounceCts);
+        previousDebounce?.Cancel();
+        previousDebounce?.Dispose();
 
-        var token = _debounceCts.Token;
+        try
+        {
+            await Task.Delay(300, debounceCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
 
-        Task.Delay(300, token) // 300ms debounce delay
-            .ContinueWith(t =>
+        if (string.IsNullOrEmpty(search))
+        {
+            IsLoading = false;
+            _items = [];
+            RaiseItemsChanged(0);
+            return;
+        }
+
+        CancellationTokenSource conversionCts = new();
+        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, conversionCts);
+        previousConversion?.Cancel();
+        previousConversion?.Dispose();
+        CancellationToken ct = conversionCts.Token;
+
+        IsLoading = true;
+        RaiseItemsChanged(search.Length);
+
+        try
+        {
+            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            try
             {
-                if (!t.IsCanceled)
+                _converter.ValidateConversionAPI();
+            }
+            catch (Exception ex)
+            {
+                _items =
+                [
+                    new ListItem(new OpenUrlCommand(GithubReadmeURL))
+                    {
+                        Title = ex.Message,
+                        Subtitle = "Press enter or click to see how to fix this issue",
+                        Icon = IconManager.WarningIcon,
+                    }
+                ];
+                return;
+            }
+
+            var results = await ParseQueryAsync(search, ct).ConfigureAwait(false);
+            _items = [.. results
+                .GroupBy(r => new { r.Title, r.Subtitle })
+                .Select(g => g.First())];
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            _items =
+            [
+                new ListItem(new NoOpCommand())
                 {
-                    // Trigger the items update after debounce delay
-                    RaiseItemsChanged(searchLength);
+                    Title = "Something went wrong while converting currencies",
+                    Subtitle = "Please try again",
+                    Icon = IconManager.WarningIcon,
                 }
-            }, TaskScheduler.Default);
+            ];
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                IsLoading = false;
+                RaiseItemsChanged(search.Length);
+            }
+        }
     }
 
     public void Dispose()
     {
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
+        _conversionCts?.Cancel();
+        _conversionCts?.Dispose();
         _converter.Dispose();
     }
 }

@@ -81,7 +81,7 @@ public class ConverterSettingsTests
         };
         var converterSettings = new ConverterSettings(settings);
 
-        var ex = Assert.Throws<Exception>(() => converterSettings.ValidateConversionAPI());
+        var ex = Assert.Throws<InvalidOperationException>(() => converterSettings.ValidateConversionAPI());
         Assert.Equal("Conversion API Key is not provided", ex.Message);
     }
 

@@ -1,14 +1,13 @@
-﻿using CurrencyConverterExtension.Commands;
-using CurrencyConverterExtension.Helpers;
+﻿using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Converter;
@@ -23,8 +22,9 @@ internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, st
 
     public int GetHashCode((string From, string To) obj)
     {
-        return StringComparer.OrdinalIgnoreCase.GetHashCode(obj.From) ^
-            StringComparer.OrdinalIgnoreCase.GetHashCode(obj.To);
+        return HashCode.Combine(
+            StringComparer.OrdinalIgnoreCase.GetHashCode(obj.From),
+            StringComparer.OrdinalIgnoreCase.GetHashCode(obj.To));
     }
 }
 
@@ -38,7 +38,7 @@ internal sealed partial class CurrencyConverter : IDisposable
     private readonly HttpClient _httpClient;
 
     internal CurrencyConverter(IConversionSettings settings, AliasManager aliasManager)
-        : this(settings, aliasManager, CreateDefaultHandler())
+        : this(settings, aliasManager, new HttpClientHandler())
     {
     }
 
@@ -50,45 +50,45 @@ internal sealed partial class CurrencyConverter : IDisposable
         _httpClient = new HttpClient(httpMessageHandler);
     }
 
-    private static HttpClientHandler CreateDefaultHandler()
-    {
-        var proxy = WebRequest.DefaultWebProxy;
-        return new HttpClientHandler()
-        {
-            Proxy = proxy,
-            UseProxy = proxy != null,
-            DefaultProxyCredentials = CredentialCache.DefaultCredentials
-        };
-    }
-
-    public List<ListItem> GetConversionResults(decimal amountToConvert, string fromCurrency, string toCurrency)
+    public async Task<List<ListItem>> GetConversionResultsAsync(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken = default)
     {
         List<(int index, Task<ListItem?> task)> conversionTasks = [];
         int index = 0;
 
         if (string.IsNullOrEmpty(fromCurrency))
         {
-            foreach (string currency in _settings.Currencies)
+            if (!string.IsNullOrEmpty(toCurrency))
             {
-                if (_settings.ConversionDirection == 0)
-                {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency)));
-                }
-                else
-                {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency)));
-                }
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, toCurrency, cancellationToken)));
             }
-
-            foreach (string currency in _settings.Currencies)
+            else
             {
-                if (_settings.ConversionDirection == 0)
+                foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency)));
+                    if (_settings.ConversionDirection == 0)
+                    {
+                        conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken)));
+                    }
+                    else
+                    {
+                        conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken)));
+                    }
                 }
-                else
+
+                foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency)));
+                    if (_settings.ConversionDirection == 0)
+                    {
+                        conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken)));
+                    }
+                    else
+                    {
+                        conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken)));
+                    }
                 }
             }
         }
@@ -96,36 +96,40 @@ internal sealed partial class CurrencyConverter : IDisposable
         {
             if (_settings.ConversionDirection == 0)
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency)));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken)));
             }
 
             foreach (string currency in _settings.Currencies)
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, currency)));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, currency, cancellationToken)));
             }
 
             if (_settings.ConversionDirection == 1)
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency)));
+                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken)));
             }
         }
         else
         {
-            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, toCurrency)));
+            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, toCurrency, cancellationToken)));
         }
 
-        Task.WhenAll(conversionTasks.Select(t => t.task)).GetAwaiter().GetResult();
+        await Task.WhenAll(conversionTasks.Select(t => t.task)).ConfigureAwait(false);
 
         var results = new ListItem?[conversionTasks.Count];
         foreach (var task in conversionTasks)
         {
-            results[task.index] = task.task.Result;
+            results[task.index] = await task.task.ConfigureAwait(false);
         }
 
         return results.Where(r => r != null).Select(r => r!).ToList();
     }
 
-    private async Task<ListItem?> GetConversionAsync(decimal amountToConvert, string fromCurrency, string toCurrency)
+    private async Task<ListItem?> GetConversionAsync(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken)
     {
         fromCurrency = GetCurrencyFromAlias(fromCurrency.ToLowerInvariant());
         toCurrency = GetCurrencyFromAlias(toCurrency.ToLowerInvariant());
@@ -137,7 +141,7 @@ internal sealed partial class CurrencyConverter : IDisposable
 
         try
         {
-            decimal conversionRate = await GetConversionRateAsync(fromCurrency, toCurrency).ConfigureAwait(false);
+            decimal conversionRate = await GetConversionRateAsync(fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
             (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
 
             string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
@@ -160,18 +164,40 @@ internal sealed partial class CurrencyConverter : IDisposable
                 Icon = IconManager.Icon,
             };
         }
-        catch (Exception e)
+        catch (OperationCanceledException)
         {
-            return new(new OpenUrlCommand(_converterSettings.GetHelperLink()))
-            {
-                Title = e.Message,
-                Subtitle = "Press enter or click to open the currencies list",
-                Icon = IconManager.WarningIcon,
-            };
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return CreateErrorItem("Unable to reach the conversion service", "Press enter or click to open the currencies list");
+        }
+        catch (JsonException)
+        {
+            return CreateErrorItem("Received an invalid response from the conversion service", "Press enter or click to open the currencies list");
+        }
+        catch (InvalidOperationException e)
+        {
+            return CreateErrorItem(e.Message, "Press enter or click to open the currencies list");
+        }
+        catch (Exception)
+        {
+            return CreateErrorItem("Something went wrong while converting currencies", "Press enter or click to open the currencies list");
         }
     }
 
-    private async Task<decimal> GetConversionRateAsync(string fromCurrency, string toCurrency)
+    private ListItem CreateErrorItem(string title, string subtitle) =>
+        new(new OpenUrlCommand(_converterSettings.GetHelperLink()))
+        {
+            Title = title,
+            Subtitle = subtitle,
+            Icon = IconManager.WarningIcon,
+        };
+
+    private async Task<decimal> GetConversionRateAsync(
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken)
     {
         var cacheKey = (fromCurrency, toCurrency);
 
@@ -182,30 +208,9 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
 
         string url = _converterSettings.GetConversionLink(fromCurrency, toCurrency);
-        HttpResponseMessage response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+        using HttpResponseMessage response = await GetWithFallbackAsync(url, fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
-            }
-            else
-            {
-                string fallbackUrl = _converterSettings.GetConversionFallbackLink(fromCurrency, toCurrency);
-                response = await _httpClient.GetAsync(fallbackUrl).ConfigureAwait(false);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw response.StatusCode == System.Net.HttpStatusCode.NotFound
-                        ? new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency")
-                        : new InvalidOperationException("Something went wrong while fetching the conversion rate");
-                }
-            }
-        }
-
-        string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        decimal conversionRate;
+        string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         JsonElement fromCurrencyElement = _converterSettings.GetRootJsonElementFor(content, fromCurrency);
         foreach (JsonProperty property in fromCurrencyElement.EnumerateObject())
@@ -217,9 +222,45 @@ internal sealed partial class CurrencyConverter : IDisposable
         {
             throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
         }
-        conversionRate = cacheOutput.Rate;
 
-        return conversionRate;
+        return cacheOutput.Rate;
+    }
+
+    private async Task<HttpResponseMessage> GetWithFallbackAsync(
+        string url,
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return response;
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            response.Dispose();
+            throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
+        }
+
+        response.Dispose();
+
+        string fallbackUrl = _converterSettings.GetConversionFallbackLink(fromCurrency, toCurrency);
+        HttpResponseMessage fallbackResponse = await _httpClient.GetAsync(fallbackUrl, cancellationToken).ConfigureAwait(false);
+
+        if (fallbackResponse.IsSuccessStatusCode)
+        {
+            return fallbackResponse;
+        }
+
+        var statusCode = fallbackResponse.StatusCode;
+        fallbackResponse.Dispose();
+
+        throw statusCode == System.Net.HttpStatusCode.NotFound
+            ? new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency")
+            : new InvalidOperationException("Something went wrong while fetching the conversion rate");
     }
 
     private string GetCurrencyFromAlias(string currency)

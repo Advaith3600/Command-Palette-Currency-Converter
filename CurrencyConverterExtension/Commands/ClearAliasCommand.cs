@@ -30,10 +30,17 @@ namespace CurrencyConverterExtension.Commands
                 {
                     _ = Task.Run(async () =>
                     {
-                        await _aliasManager.RemoveAliasAsync(_aliasKey).ConfigureAwait(false);
-                        ItemsChanged?.Invoke();
-                        ToastStatusMessage t = new("The alias was deleted");
-                        t.Show();
+                        try
+                        {
+                            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+                            await _aliasManager.RemoveAliasAsync(_aliasKey).ConfigureAwait(false);
+                            ItemsChanged?.Invoke();
+                            new ToastStatusMessage("The alias was deleted").Show();
+                        }
+                        catch (Exception ex)
+                        {
+                            new ToastStatusMessage($"Failed to delete alias: {ex.Message}").Show();
+                        }
                     });
                 })
                 {
