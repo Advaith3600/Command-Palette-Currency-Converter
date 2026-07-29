@@ -78,13 +78,13 @@ namespace CurrencyConverterExtension.Forms
             alias = alias.ToLowerInvariant();
             currency = currency.ToLowerInvariant();
 
-            if (!_aliasManager.ValidateKeyFormat(alias))
+            if (!AliasManager.ValidateKeyFormat(alias))
             {
                 new ToastStatusMessage("Alias Key is invalid").Show();
                 return CommandResult.KeepOpen();
             }
 
-            if (!_aliasManager.ValidateKeyFormat(currency))
+            if (!AliasManager.ValidateKeyFormat(currency))
             {
                 new ToastStatusMessage("Currency Key is invalid").Show();
                 return CommandResult.KeepOpen();

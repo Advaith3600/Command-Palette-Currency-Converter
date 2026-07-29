@@ -273,7 +273,7 @@ internal sealed partial class CurrencyConverter : IDisposable
         return currency;
     }
 
-    internal (decimal ConvertedAmount, int Precision) CalculateConvertedAmount(decimal amountToConvert, decimal conversionRate)
+    internal static (decimal ConvertedAmount, int Precision) CalculateConvertedAmount(decimal amountToConvert, decimal conversionRate)
     {
         int precision = CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalDigits;
         decimal rawConvertedAmount = Math.Abs(amountToConvert * conversionRate);

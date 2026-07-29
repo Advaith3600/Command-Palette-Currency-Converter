@@ -1,5 +1,5 @@
-using System.Globalization;
 using CurrencyConverterExtension.Converter;
+using System.Globalization;
 
 namespace CurrencyConverterExtension.Tests;
 

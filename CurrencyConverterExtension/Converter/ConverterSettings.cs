@@ -47,9 +47,9 @@ public class ConverterSettings
     private string ParseLink(string link, string from, string to) => link
         .Replace("{api_key}", _settings.ConversionAPIKey)
         .Replace("{date}", ConversionDate)
-        .Replace("{from}", _settings.ConversionAPI == (int)ConverterSettingsEnum.CurrencyAPI ? from.ToUpperInvariant() : from)
+        .Replace("{from}", _settings.ConversionAPI == (int)ConverterSettingsApi.CurrencyAPI ? from.ToUpperInvariant() : from)
         .Replace("{to}", to);
-    private Dictionary<string, string> GetOption() => _options[((ConverterSettingsEnum)_settings.ConversionAPI).ToString()];
+    private Dictionary<string, string> GetOption() => _options[((ConverterSettingsApi)_settings.ConversionAPI).ToString()];
 
     internal string GetConversionLink(string from, string to) => ParseLink(GetOption()["ConversionLink"], from, to);
     internal string GetConversionFallbackLink(string from, string to) => ParseLink(GetOption()["ConversionFallbackLink"], from, to);
@@ -63,7 +63,7 @@ public class ConverterSettings
 
     internal void ValidateConversionAPI()
     {
-        if (_settings.ConversionAPI != (int)ConverterSettingsEnum.Default)
+        if (_settings.ConversionAPI != (int)ConverterSettingsApi.Default)
             EnsureConversionAPIKey();
     }
 
@@ -76,9 +76,9 @@ public class ConverterSettings
 
         switch (_settings.ConversionAPI)
         {
-            case (int)ConverterSettingsEnum.Default: return GetProperty(fromCurrency);
-            case (int)ConverterSettingsEnum.ExchangeRateAPI: return GetProperty("conversion_rates");
-            case (int)ConverterSettingsEnum.CurrencyAPI: return GetProperty("data");
+            case (int)ConverterSettingsApi.Default: return GetProperty(fromCurrency);
+            case (int)ConverterSettingsApi.ExchangeRateAPI: return GetProperty("conversion_rates");
+            case (int)ConverterSettingsApi.CurrencyAPI: return GetProperty("data");
         }
 
         throw new InvalidOperationException("Invalid Conversion API selected.");
@@ -86,7 +86,7 @@ public class ConverterSettings
 
     internal (string, decimal) GetRateFor(JsonProperty property)
     {
-        if (_settings.ConversionAPI == (int)ConverterSettingsEnum.CurrencyAPI)
+        if (_settings.ConversionAPI == (int)ConverterSettingsApi.CurrencyAPI)
         {
             if (property.Value.TryGetProperty("code", out JsonElement codeElement))
             {
@@ -105,7 +105,7 @@ public class ConverterSettings
 
 }
 
-public enum ConverterSettingsEnum
+public enum ConverterSettingsApi
 {
     Default,
     ExchangeRateAPI,

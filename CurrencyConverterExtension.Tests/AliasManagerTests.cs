@@ -13,8 +13,7 @@ public class AliasManagerTests
     [InlineData("my_alias")]
     public void ValidateKeyFormat_AcceptsValidKeys(string key)
     {
-        var manager = new AliasManager();
-        Assert.True(manager.ValidateKeyFormat(key));
+        Assert.True(AliasManager.ValidateKeyFormat(key));
     }
 
     [Theory]
@@ -23,8 +22,7 @@ public class AliasManagerTests
     [InlineData("\t")]
     public void ValidateKeyFormat_RejectsWhitespaceOrEmpty(string key)
     {
-        var manager = new AliasManager();
-        Assert.False(manager.ValidateKeyFormat(key));
+        Assert.False(AliasManager.ValidateKeyFormat(key));
     }
 
     [Theory]
@@ -34,8 +32,7 @@ public class AliasManagerTests
     [InlineData("ab cd")]
     public void ValidateKeyFormat_RejectsKeysWithInvalidCharacters(string key)
     {
-        var manager = new AliasManager();
-        Assert.False(manager.ValidateKeyFormat(key));
+        Assert.False(AliasManager.ValidateKeyFormat(key));
     }
 
     [Fact]

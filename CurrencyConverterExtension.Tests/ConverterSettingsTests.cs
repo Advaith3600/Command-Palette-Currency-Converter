@@ -1,6 +1,6 @@
-using System.Text.Json;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Tests.Fakes;
+using System.Text.Json;
 
 namespace CurrencyConverterExtension.Tests;
 
@@ -9,7 +9,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetConversionLink_DefaultApi_UsesTemplate()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.Default };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default };
         var converterSettings = new ConverterSettings(settings) { ConversionDate = "latest" };
 
         string link = converterSettings.GetConversionLink("usd", "inr");
@@ -20,7 +20,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetConversionFallbackLink_DefaultApi_UsesTemplate()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.Default };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default };
         var converterSettings = new ConverterSettings(settings) { ConversionDate = "latest" };
 
         string link = converterSettings.GetConversionFallbackLink("usd", "inr");
@@ -33,7 +33,7 @@ public class ConverterSettingsTests
     {
         var settings = new FakeConversionSettings
         {
-            ConversionAPI = (int)ConverterSettingsEnum.ExchangeRateAPI,
+            ConversionAPI = (int)ConverterSettingsApi.ExchangeRateAPI,
             ConversionAPIKey = "secret-key",
         };
         var converterSettings = new ConverterSettings(settings) { ConversionDate = "latest" };
@@ -48,7 +48,7 @@ public class ConverterSettingsTests
     {
         var settings = new FakeConversionSettings
         {
-            ConversionAPI = (int)ConverterSettingsEnum.CurrencyAPI,
+            ConversionAPI = (int)ConverterSettingsApi.CurrencyAPI,
             ConversionAPIKey = "secret-key",
         };
         var converterSettings = new ConverterSettings(settings) { ConversionDate = "latest" };
@@ -63,7 +63,7 @@ public class ConverterSettingsTests
     {
         var settings = new FakeConversionSettings
         {
-            ConversionAPI = (int)ConverterSettingsEnum.Default,
+            ConversionAPI = (int)ConverterSettingsApi.Default,
             ConversionAPIKey = "",
         };
         var converterSettings = new ConverterSettings(settings);
@@ -76,7 +76,7 @@ public class ConverterSettingsTests
     {
         var settings = new FakeConversionSettings
         {
-            ConversionAPI = (int)ConverterSettingsEnum.ExchangeRateAPI,
+            ConversionAPI = (int)ConverterSettingsApi.ExchangeRateAPI,
             ConversionAPIKey = "",
         };
         var converterSettings = new ConverterSettings(settings);
@@ -88,7 +88,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRootJsonElementFor_DefaultApi_ReturnsFromCurrencyObject()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.Default };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default };
         var converterSettings = new ConverterSettings(settings);
         const string json = """{"date":"2024-01-01","usd":{"inr":83.1,"eur":0.92}}""";
 
@@ -101,7 +101,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRootJsonElementFor_ExchangeRateApi_ReturnsConversionRates()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.ExchangeRateAPI, ConversionAPIKey = "k" };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.ExchangeRateAPI, ConversionAPIKey = "k" };
         var converterSettings = new ConverterSettings(settings);
         const string json = """{"conversion_rates":{"INR":83.1,"EUR":0.92}}""";
 
@@ -113,7 +113,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRootJsonElementFor_CurrencyApi_ReturnsData()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.CurrencyAPI, ConversionAPIKey = "k" };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.CurrencyAPI, ConversionAPIKey = "k" };
         var converterSettings = new ConverterSettings(settings);
         const string json = """{"data":{"INR":{"code":"INR","value":83.1}}}""";
 
@@ -125,7 +125,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRateFor_DefaultApi_ReturnsNameAndValue()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.Default };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default };
         var converterSettings = new ConverterSettings(settings);
         using var doc = JsonDocument.Parse("""{"inr":83.1}""");
         JsonProperty property = doc.RootElement.EnumerateObject().First();
@@ -139,7 +139,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRateFor_CurrencyApi_ReturnsCodeAndValue()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.CurrencyAPI, ConversionAPIKey = "k" };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.CurrencyAPI, ConversionAPIKey = "k" };
         var converterSettings = new ConverterSettings(settings);
         using var doc = JsonDocument.Parse("""{"INR":{"code":"INR","value":83.1}}""");
         JsonProperty property = doc.RootElement.EnumerateObject().First();
@@ -153,7 +153,7 @@ public class ConverterSettingsTests
     [Fact]
     public void GetRateFor_CurrencyApi_InvalidShape_Throws()
     {
-        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsEnum.CurrencyAPI, ConversionAPIKey = "k" };
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.CurrencyAPI, ConversionAPIKey = "k" };
         var converterSettings = new ConverterSettings(settings);
         using var doc = JsonDocument.Parse("""{"INR":{"code":"INR"}}""");
         JsonProperty property = doc.RootElement.EnumerateObject().First();

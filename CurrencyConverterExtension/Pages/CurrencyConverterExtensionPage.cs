@@ -52,6 +52,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         return new AnonymousCommand(() =>
          {
              SearchText = text;
+             OnPropertyChanged(nameof(SearchText));
+             _ = DebounceAndConvertAsync(text);
          })
         {
             Name = "Use",
@@ -66,13 +68,6 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Title = "Manage currency aliases",
                 Subtitle = "View, create and remove your aliases",
                 Icon = Icon,
-            },
-
-            new ListItem(new OpenUrlCommand(GithubReadmeURL))
-            {
-                Title = "Start typing to convert currencies",
-                Subtitle = "Few examples are listed below",
-                Icon = IconManager.Icon,
             },
             new ListItem(UpdateSearchCommand("100 USD to INR"))
             {
@@ -118,6 +113,12 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                         })
                     })
                 ]
+            },
+            new ListItem(new OpenUrlCommand("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json"))
+            {
+                Title = "All available currencies",
+                Subtitle = "Opens the full currencies list (JSON)",
+                Icon = IconManager.Icon,
             },
         ];
     }

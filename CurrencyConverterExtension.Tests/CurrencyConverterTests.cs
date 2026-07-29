@@ -1,8 +1,8 @@
-using System.Globalization;
-using System.Net;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using CurrencyConverterExtension.Tests.Fakes;
+using System.Globalization;
+using System.Net;
 
 namespace CurrencyConverterExtension.Tests;
 
@@ -234,9 +234,7 @@ public class CurrencyConverterTests
     public void CalculateConvertedAmount_UsesCurrencyDecimalDigits()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
-        using var converter = CreateConverter();
-
-        (decimal amount, int precision) = converter.CalculateConvertedAmount(100m, 1.2345m);
+        (decimal amount, int precision) = CurrencyConverter.CalculateConvertedAmount(100m, 1.2345m);
 
         Assert.Equal(2, precision);
         Assert.Equal(123.45m, amount);
@@ -246,9 +244,7 @@ public class CurrencyConverterTests
     public void CalculateConvertedAmount_IncreasesPrecisionForSmallValues()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
-        using var converter = CreateConverter();
-
-        (decimal amount, int precision) = converter.CalculateConvertedAmount(1m, 0.00123m);
+        (decimal amount, int precision) = CurrencyConverter.CalculateConvertedAmount(1m, 0.00123m);
 
         Assert.Equal(4, precision);
         Assert.Equal(0.0012m, amount);
@@ -299,9 +295,7 @@ public class CurrencyConverterTests
     public void CalculateConvertedAmount_JaJP_ReturnsZeroPrecision()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
-        using var converter = CreateConverter();
-
-        (decimal amount, int precision) = converter.CalculateConvertedAmount(100m, 1.2345m);
+        (decimal amount, int precision) = CurrencyConverter.CalculateConvertedAmount(100m, 1.2345m);
 
         Assert.Equal(0, precision);
         Assert.Equal(123m, amount);
@@ -311,9 +305,7 @@ public class CurrencyConverterTests
     public void CalculateConvertedAmount_DeDE_ReturnsTwoDecimalPrecision()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
-        using var converter = CreateConverter();
-
-        (decimal amount, int precision) = converter.CalculateConvertedAmount(100m, 1.2345m);
+        (decimal amount, int precision) = CurrencyConverter.CalculateConvertedAmount(100m, 1.2345m);
 
         Assert.Equal(2, precision);
         Assert.Equal(123.45m, amount);
@@ -324,7 +316,7 @@ public class CurrencyConverterTests
     {
         using var converter = CreateConverter(new FakeConversionSettings
         {
-            ConversionAPI = (int)ConverterSettingsEnum.ExchangeRateAPI,
+            ConversionAPI = (int)ConverterSettingsApi.ExchangeRateAPI,
             ConversionAPIKey = "",
         });
 

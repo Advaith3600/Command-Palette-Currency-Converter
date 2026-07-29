@@ -1,10 +1,10 @@
-﻿using System;
+﻿using CurrencyConverterExtension.Converter;
+using CurrencyConverterExtension.Properties;
+using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using CurrencyConverterExtension.Converter;
-using CurrencyConverterExtension.Properties;
-using Microsoft.CommandPalette.Extensions.Toolkit;
 
 namespace CurrencyConverterExtension.Helpers
 {
@@ -71,11 +71,11 @@ namespace CurrencyConverterExtension.Helpers
             Resources.conversion_api_description,
             new()
             {
-                new(Resources.default_api, ((int)ConverterSettingsEnum.Default).ToString()),
-                new(Resources.exchange_rate_api, ((int)ConverterSettingsEnum.ExchangeRateAPI).ToString()),
-                new(Resources.currency_api, ((int)ConverterSettingsEnum.CurrencyAPI).ToString()),
+                new(Resources.default_api, ((int)ConverterSettingsApi.Default).ToString(CultureInfo.InvariantCulture)),
+                new(Resources.exchange_rate_api, ((int)ConverterSettingsApi.ExchangeRateAPI).ToString(CultureInfo.InvariantCulture)),
+                new(Resources.currency_api, ((int)ConverterSettingsApi.CurrencyAPI).ToString(CultureInfo.InvariantCulture)),
             })
-        { Value = ((int)ConverterSettingsEnum.Default).ToString() };
+        { Value = ((int)ConverterSettingsApi.Default).ToString(CultureInfo.InvariantCulture) };
 
         private readonly TextSetting _conversionAPIKey = new(
             Namespaced(nameof(ConversionAPIKey)),

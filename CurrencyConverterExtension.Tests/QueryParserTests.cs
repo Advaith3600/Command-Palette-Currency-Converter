@@ -1,6 +1,6 @@
-using System.Globalization;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
+using System.Globalization;
 
 namespace CurrencyConverterExtension.Tests;
 
@@ -86,8 +86,7 @@ public class QueryParserTests
     [InlineData("\u20AC")]
     public void Parse_AgreementWithAliasValidation_ForValidKeys(string currencyToken)
     {
-        var aliasManager = new AliasManager();
-        Assert.True(aliasManager.ValidateKeyFormat(currencyToken), "Test precondition failed");
+        Assert.True(AliasManager.ValidateKeyFormat(currencyToken), "Test precondition failed");
 
         // Keep formatting simple: integer amount + explicit "to" clause.
         string search = currencyToken == "\u20AC"
@@ -105,8 +104,7 @@ public class QueryParserTests
     [InlineData("!!!")]
     public void Parse_AgreementWithAliasValidation_ForInvalidKeys_ReturnsNoMatch(string currencyToken)
     {
-        var aliasManager = new AliasManager();
-        Assert.False(aliasManager.ValidateKeyFormat(currencyToken));
+        Assert.False(AliasManager.ValidateKeyFormat(currencyToken));
 
         string search = $"100 {currencyToken} to inr";
         QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);

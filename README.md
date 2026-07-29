@@ -52,7 +52,7 @@ $100 to eur
 
 ### Crypto and other currencies
 
-This plugin also converters real currencies to crypto currencies and vice versa. Refer [here](https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.json) for the full list of available conversions.
+This plugin also converters real currencies to crypto currencies and vice versa. Refer [here](https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json) for the full list of available conversions.
 
 Example Usage:
 

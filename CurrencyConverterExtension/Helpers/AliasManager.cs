@@ -41,7 +41,7 @@ namespace CurrencyConverterExtension.Helpers
             _initialized = true;
         }
 
-        public bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.IsMatch(key, ValidationKeyRegex);
+        public static bool ValidateKeyFormat(string key) => !string.IsNullOrWhiteSpace(key) && Regex.IsMatch(key, ValidationKeyRegex);
 
         public Task EnsureInitializedAsync()
         {
@@ -80,10 +80,10 @@ namespace CurrencyConverterExtension.Helpers
             await LoadAliasesAsync().ConfigureAwait(false);
         }
 
-        private async Task EnsureAliasFileExistsAsync()
+        private static async Task EnsureAliasFileExistsAsync()
         {
             StorageFolder roamingFolder = ApplicationData.Current.RoamingFolder;
-            StorageFile aliasFile = await roamingFolder.TryGetItemAsync(AliasFileName) as StorageFile;
+            StorageFile? aliasFile = await roamingFolder.TryGetItemAsync(AliasFileName) as StorageFile;
 
             if (aliasFile == null)
             {
@@ -122,7 +122,7 @@ namespace CurrencyConverterExtension.Helpers
         {
             lock (_gate)
             {
-                if (aliases.TryGetValue(NormalizeKey(currencyCode), out string alias))
+                if (aliases.TryGetValue(NormalizeKey(currencyCode), out string? alias))
                 {
                     return alias;
                 }
