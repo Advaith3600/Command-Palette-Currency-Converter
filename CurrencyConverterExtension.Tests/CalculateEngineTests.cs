@@ -104,4 +104,22 @@ public class CalculateEngineTests
         decimal result = CalculateEngine.Evaluate("10 + -(3+2)", DotFormatter());
         Assert.Equal(5m, result);
     }
+
+    [Fact]
+    public void Evaluate_DeDECultureFormatter_ParsesCommaDecimal()
+    {
+        var nfi = CultureInfo.GetCultureInfo("de-DE").NumberFormat;
+        decimal result = CalculateEngine.Evaluate("10,5 + 1,5", nfi);
+        Assert.Equal(12m, result);
+    }
+
+    [Fact]
+    public void Evaluate_DeDECultureFormatter_AfterGroupSeparatorStripped()
+    {
+        var nfi = CultureInfo.GetCultureInfo("de-DE").NumberFormat;
+        // QueryParser strips group separators before calling Evaluate
+        string expression = "1.000 + 500".Replace(nfi.CurrencyGroupSeparator, "");
+        decimal result = CalculateEngine.Evaluate(expression, nfi);
+        Assert.Equal(1500m, result);
+    }
 }

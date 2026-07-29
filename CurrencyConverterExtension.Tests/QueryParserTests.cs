@@ -1,3 +1,4 @@
+using System.Globalization;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 
@@ -110,5 +111,38 @@ public class QueryParserTests
         string search = $"100 {currencyToken} to inr";
         QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);
         Assert.Equal(QueryParseStatus.NoMatch, result.Status);
+    }
+
+    [Fact]
+    public void Parse_SystemDefault_EnUS_ParsesDotDecimal()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+
+        QueryParseResult result = QueryParser.Parse("10.5 usd to inr", decimalSeparatorMode: 0);
+
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal(10.5m, result.Query!.Value.Amount);
+    }
+
+    [Fact]
+    public void Parse_SystemDefault_DeDE_ParsesCommaDecimal()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+
+        QueryParseResult result = QueryParser.Parse("10,5 usd to inr", decimalSeparatorMode: 0);
+
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal(10.5m, result.Query!.Value.Amount);
+    }
+
+    [Fact]
+    public void Parse_SystemDefault_DeDE_DotTreatedAsGroupSeparator()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+
+        QueryParseResult result = QueryParser.Parse("1.000 usd to inr", decimalSeparatorMode: 0);
+
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal(1000m, result.Query!.Value.Amount);
     }
 }

@@ -255,6 +255,71 @@ public class CurrencyConverterTests
     }
 
     [Fact]
+    public async Task GetConversionResults_DeDE_OutputUsesCommaDecimalAndDotGroupSeparator()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        using var converter = CreateConverter(new FakeConversionSettings { OutputStyle = 0 });
+
+        var results = await converter.GetConversionResultsAsync(1000m, "usd", "inr", TestContext.Current.CancellationToken);
+
+        Assert.Single(results);
+        // de-DE formats 80000 as "80.000,00" (dot group sep, comma decimal sep)
+        Assert.Contains("80.000,00", results[0].Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetConversionResults_JaJP_OutputUsesZeroDecimalDigits()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+        using var converter = CreateConverter(new FakeConversionSettings { OutputStyle = 0 });
+
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+
+        Assert.Single(results);
+        // ja-JP has 0 CurrencyDecimalDigits, so 8000 with no decimal portion
+        Assert.Contains("8,000 INR", results[0].Title, StringComparison.Ordinal);
+        Assert.DoesNotContain("8,000.00", results[0].Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetConversionResults_DeDE_ExpandedOutputFormatsCorrectly()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        using var converter = CreateConverter(new FakeConversionSettings { OutputStyle = 1 });
+
+        var results = await converter.GetConversionResultsAsync(1000m, "usd", "inr", TestContext.Current.CancellationToken);
+
+        Assert.Single(results);
+        // Both sides should use de-DE formatting
+        Assert.Contains("1.000,00", results[0].Title, StringComparison.Ordinal);
+        Assert.Contains("80.000,00", results[0].Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CalculateConvertedAmount_JaJP_ReturnsZeroPrecision()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ja-JP");
+        using var converter = CreateConverter();
+
+        (decimal amount, int precision) = converter.CalculateConvertedAmount(100m, 1.2345m);
+
+        Assert.Equal(0, precision);
+        Assert.Equal(123m, amount);
+    }
+
+    [Fact]
+    public void CalculateConvertedAmount_DeDE_ReturnsTwoDecimalPrecision()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        using var converter = CreateConverter();
+
+        (decimal amount, int precision) = converter.CalculateConvertedAmount(100m, 1.2345m);
+
+        Assert.Equal(2, precision);
+        Assert.Equal(123.45m, amount);
+    }
+
+    [Fact]
     public void ValidateConversionAPI_ThrowsWhenKeyMissingForPaidApi()
     {
         using var converter = CreateConverter(new FakeConversionSettings
