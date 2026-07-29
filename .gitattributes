@@ -1,0 +1,55 @@
+# Normalize text to LF in the repo and working tree (WSL / Linux standard).
+# Windows editors (VS / Cursor) will still work; Git keeps checkouts as LF.
+* text=auto eol=lf
+
+# Source
+*.cs     text diff=csharp eol=lf
+*.csx    text diff=csharp eol=lf
+*.xaml   text eol=lf
+*.resx   text eol=lf
+*.manifest text eol=lf
+
+# Project / build
+*.csproj text eol=lf
+*.props  text eol=lf
+*.targets text eol=lf
+*.pubxml text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.toml   text eol=lf
+*.config text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# Visual Studio solution files historically expect CRLF
+*.sln text eol=crlf
+
+# Windows scripts must stay CRLF to run correctly
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Unix scripts must stay LF
+*.sh   text eol=lf
+*.bash text eol=lf
+
+# Binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  text eol=lf
+*.pdf  binary
+*.dll  binary
+*.exe  binary
+*.pdb  binary
+*.snk  binary
+*.pfx  binary
+*.msix binary
+*.appx binary
+*.appxsym binary
+*.zip  binary
+*.nupkg binary
+*.snupkg binary

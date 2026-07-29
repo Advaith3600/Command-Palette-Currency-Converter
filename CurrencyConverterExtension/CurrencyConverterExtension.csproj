@@ -8,7 +8,7 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
-    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+    <GenerateAppxPackageOnBuild Condition="'$(Configuration)'=='Release'">true</GenerateAppxPackageOnBuild>
 
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <EnableMsixTooling>true</EnableMsixTooling>
@@ -46,10 +46,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CommandPalette.Extensions" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" />
-    <PackageReference Include="Microsoft.Web.WebView2" />
+    <!-- Needed to enable building an MSIX package without WindowsAppSDK -->
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Shmuelie.WinRTServer" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -78,7 +82,23 @@
     <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
     <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
     <!-- Suppress DynamicallyAccessedMemberTypes.PublicParameterlessConstructor in fallback code path of Windows SDK projection -->
-    <WarningsNotAsErrors>IL2081</WarningsNotAsErrors>
+    <WarningsNotAsErrors>IL2081;$(WarningsNotAsErrors)</WarningsNotAsErrors>
+
+    <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <!-- Faster Debug inner loop; analyzers still surface trim/AOT issues early. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'!='Debug'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
