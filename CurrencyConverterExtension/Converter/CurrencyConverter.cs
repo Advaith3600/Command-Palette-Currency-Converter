@@ -18,7 +18,8 @@ internal sealed record ConversionOutcome(
     decimal Amount,
     string FromCurrency,
     string ToCurrency,
-    string ToFormatted);
+    string ToFormatted,
+    decimal Rate = 0m);
 
 internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, string To)>
 {
@@ -169,17 +170,25 @@ internal sealed partial class CurrencyConverter : IDisposable
             string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
             string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
 
-            string compressedOutput = $"{toFormatted} {toCurrency.ToUpperInvariant()}";
-            string expandedOutput = $"{fromFormatted} {fromCurrency.ToUpperInvariant()} = {toFormatted} {toCurrency.ToUpperInvariant()}";
+            string fromCode = fromCurrency.ToUpperInvariant();
+            string toCode = toCurrency.ToUpperInvariant();
+            string compressedOutput = $"{toFormatted} {toCode}";
+            string expandedOutput = $"{fromFormatted} {fromCode} = {toFormatted} {toCode}";
 
             ListItem item = new(CreateCopyCommand(toFormatted))
             {
                 Title = _settings.OutputStyle == 0 ? compressedOutput : expandedOutput,
-                Subtitle = $"Currency conversion from {fromCurrency.ToUpperInvariant()} to {toCurrency.ToUpperInvariant()}",
+                Subtitle = $"Currency conversion from {fromCode} to {toCode}",
                 Icon = IconManager.Icon,
+                Details = CreateConversionDetails(
+                    fromFormatted,
+                    fromCode,
+                    toFormatted,
+                    toCode,
+                    conversionRate),
             };
 
-            return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted);
+            return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted, conversionRate);
         }
         catch (OperationCanceledException)
         {
@@ -236,6 +245,56 @@ internal sealed partial class CurrencyConverter : IDisposable
                 Result = CommandResult.Hide()
             })
         };
+
+    internal static Details CreateConversionDetails(
+        string fromFormatted,
+        string fromCode,
+        string toFormatted,
+        string toCode,
+        decimal rate)
+    {
+        string unitRate = FormatRate(rate);
+        string inverseRate = rate == 0m ? "—" : FormatRate(1m / rate);
+
+        return new Details
+        {
+            Title = $"{toFormatted} {toCode}",
+            HeroImage = IconManager.Icon,
+            Body = $"**{fromFormatted} {fromCode}** → **{toFormatted} {toCode}**",
+            Metadata =
+            [
+                new DetailsElement
+                {
+                    Key = "Unit rate",
+                    Data = new DetailsLink { Text = $"1 {fromCode} = {unitRate} {toCode}" },
+                },
+                new DetailsElement
+                {
+                    Key = "Inverse rate",
+                    Data = new DetailsLink { Text = $"1 {toCode} = {inverseRate} {fromCode}" },
+                },
+            ],
+        };
+    }
+
+    internal static string FormatRate(decimal rate)
+    {
+        decimal absRate = Math.Abs(rate);
+        int precision = Math.Max(CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalDigits, 4);
+
+        if (absRate > 0m && absRate < 1m)
+        {
+            string rawStr = absRate.ToString("F10", CultureInfo.InvariantCulture);
+            int decimalPointIndex = rawStr.IndexOf('.');
+            if (decimalPointIndex != -1)
+            {
+                int numberOfZeros = rawStr.Substring(decimalPointIndex + 1).TakeWhile(c => c == '0').Count();
+                precision = Math.Max(precision, numberOfZeros + 4);
+            }
+        }
+
+        return Math.Round(rate, precision).ToString($"N{precision}", CultureInfo.CurrentCulture);
+    }
 
     private ListItem CreateErrorItem(string title, string subtitle) =>
         new(new OpenUrlCommand(_converterSettings.GetHelperLink()))

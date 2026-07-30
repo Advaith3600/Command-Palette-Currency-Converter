@@ -110,6 +110,32 @@ public class CurrencyConverterTests
     }
 
     [Fact]
+    public async Task GetConversionResults_Success_IncludesConversionDetails()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        using var converter = CreateConverter();
+
+        var results = await converter.GetConversionResultsAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+
+        Assert.Single(results);
+        var details = results[0].Details;
+        Assert.NotNull(details);
+        Assert.Contains("INR", details.Title, StringComparison.Ordinal);
+        Assert.Contains("USD", details.Body, StringComparison.Ordinal);
+        Assert.Contains("INR", details.Body, StringComparison.Ordinal);
+
+        var metadataTexts = details.Metadata!
+            .Select(m => m.Data)
+            .OfType<Microsoft.CommandPalette.Extensions.Toolkit.DetailsLink>()
+            .Select(l => l.Text)
+            .ToList();
+
+        Assert.Equal(2, metadataTexts.Count);
+        Assert.Contains(metadataTexts, t => t is not null && t.Contains("1 USD", StringComparison.Ordinal));
+        Assert.Contains(metadataTexts, t => t is not null && t.Contains("1 INR", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task GetConversionResults_NotFound_ReturnsErrorItem()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
@@ -122,6 +148,17 @@ public class CurrencyConverterTests
         Assert.Single(results);
         Assert.Contains("ZZZ", results[0].Title, StringComparison.Ordinal);
         Assert.Contains("not a valid currency", results[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(results[0].Details);
+    }
+
+    [Fact]
+    public void FormatRate_SmallValues_UsesExtraPrecision()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+
+        string formatted = CurrencyConverter.FormatRate(0.00001234m);
+
+        Assert.Contains("0.000012", formatted, StringComparison.Ordinal);
     }
 
     [Fact]

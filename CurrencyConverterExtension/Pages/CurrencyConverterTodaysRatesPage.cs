@@ -37,6 +37,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         Icon = IconManager.Icon;
         Title = "Today's rates";
         Name = "Today's rates";
+        ShowDetails = true;
 
         _settings = settings;
         _aliasManager = aliasManager;
@@ -367,6 +368,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             Title = outcome.Item.Title,
             Subtitle = "Press Enter to pin this conversion",
             Icon = IconManager.Icon,
+            Details = outcome.Item.Details,
             MoreCommands =
             [
                 new CommandContextItem(CurrencyConverter.CreateCopyCommand(outcome.ToFormatted))
@@ -389,6 +391,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             Title = outcome.Item.Title,
             Subtitle = $"Pinned · {outcome.Item.Subtitle}",
             Icon = IconManager.Icon,
+            Details = outcome.Item.Details,
             MoreCommands =
             [
                 new CommandContextItem(unpinCommand)

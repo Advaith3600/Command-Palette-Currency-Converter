@@ -37,6 +37,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         Icon = IconManager.Icon;
         Title = "Currency Converter";
         Name = "Convert";
+        ShowDetails = true;
 
         _settings = settings;
         _aliasManager = aliasManager;
