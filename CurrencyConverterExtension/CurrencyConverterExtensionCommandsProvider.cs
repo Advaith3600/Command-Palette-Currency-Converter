@@ -11,6 +11,8 @@ namespace CurrencyConverterExtension;
 public partial class CurrencyConverterExtensionCommandsProvider : CommandProvider
 {
     private readonly ICommandItem[] _commands;
+    private readonly CommandItem _todaysRatesCommand;
+    private readonly CommandItem _aliasCommand;
     private readonly SettingsManager _settingsManager = new();
     private readonly AliasManager _aliasManager = new();
     private readonly PinnedConversionManager _pinManager = new();
@@ -25,8 +27,28 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         _ = _aliasManager.EnsureInitializedAsync();
         _ = _pinManager.EnsureInitializedAsync();
 
+        _todaysRatesCommand = new CommandItem(
+            new CurrencyConverterTodaysRatesPage(_settingsManager, _aliasManager, _pinManager))
+        {
+            Title = "Today's rates",
+            Subtitle = "1 local currency to your other currencies, plus pinned conversions",
+            Icon = Icon,
+        };
+
+        _aliasCommand = new CommandItem(new CurrencyConverterAliasPage(_aliasManager))
+        {
+            Title = "Manage currency aliases",
+            Subtitle = "View, create and remove your aliases",
+            Icon = Icon,
+        };
+
         _commands = [
-            new CommandItem(new CurrencyConverterExtensionPage(_settingsManager, _aliasManager, _pinManager)) {
+            new CommandItem(new CurrencyConverterExtensionPage(
+                _settingsManager,
+                _aliasManager,
+                _todaysRatesCommand,
+                _aliasCommand))
+            {
                 Title = DisplayName,
                 Icon = Icon,
                 Subtitle = "Convert real and crypto currencies.",
@@ -42,4 +64,26 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         return _commands;
     }
 
+    public override ICommandItem? GetCommandItem(string id)
+    {
+        if (_todaysRatesCommand.Command?.Id == id)
+        {
+            return _todaysRatesCommand;
+        }
+
+        if (_aliasCommand.Command?.Id == id)
+        {
+            return _aliasCommand;
+        }
+
+        foreach (ICommandItem item in _commands)
+        {
+            if (item.Command?.Id == id)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
 }

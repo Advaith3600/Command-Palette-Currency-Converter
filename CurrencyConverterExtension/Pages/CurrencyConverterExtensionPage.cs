@@ -19,10 +19,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
     internal readonly AliasManager _aliasManager;
-    internal readonly PinnedConversionManager _pinManager;
 
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
+    private readonly IListItem _todaysRatesItem;
+    private readonly IListItem _aliasItem;
     private IListItem[] _items = [];
     private CancellationTokenSource? _debounceCts;
     private CancellationTokenSource? _conversionCts;
@@ -30,7 +31,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     public CurrencyConverterExtensionPage(
         SettingsManager settings,
         AliasManager aliasManager,
-        PinnedConversionManager pinManager)
+        CommandItem todaysRatesCommand,
+        CommandItem aliasCommand)
     {
         Icon = IconManager.Icon;
         Title = "Currency Converter";
@@ -38,8 +40,20 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
         _settings = settings;
         _aliasManager = aliasManager;
-        _pinManager = pinManager;
         _converter = new(_settings, aliasManager);
+
+        _todaysRatesItem = new ListItem(todaysRatesCommand.Command!)
+        {
+            Title = todaysRatesCommand.Title,
+            Subtitle = todaysRatesCommand.Subtitle,
+            Icon = todaysRatesCommand.Icon ?? Icon,
+        };
+        _aliasItem = new ListItem(aliasCommand.Command!)
+        {
+            Title = aliasCommand.Title,
+            Subtitle = aliasCommand.Subtitle,
+            Icon = aliasCommand.Icon ?? Icon,
+        };
     }
 
     public override IListItem[] GetItems()
@@ -69,16 +83,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     private IListItem[] FallbackItems()
     {
         return [
-            new ListItem(new CurrencyConverterTodaysRatesPage(_settings, _aliasManager, _pinManager)) {
-                Title = "Today's rates",
-                Subtitle = "1 local currency to your other currencies, plus pinned conversions",
-                Icon = Icon,
-            },
-            new ListItem(new CurrencyConverterAliasPage(_aliasManager)) {
-                Title = "Manage currency aliases",
-                Subtitle = "View, create and remove your aliases",
-                Icon = Icon,
-            },
+            _todaysRatesItem,
+            _aliasItem,
             new ListItem(UpdateSearchCommand("100 USD to INR"))
             {
                 Title = "100 USD to INR",
