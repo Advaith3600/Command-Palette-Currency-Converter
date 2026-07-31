@@ -27,21 +27,31 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     private IListItem[] _items = [];
     private CancellationTokenSource? _debounceCts;
     private CancellationTokenSource? _conversionCts;
+    private string? _lastRequestedSearch;
 
     public CurrencyConverterExtensionPage(
         SettingsManager settings,
         AliasManager aliasManager,
+        CurrencyConverter converter,
         CommandItem todaysRatesCommand,
-        CommandItem aliasCommand)
+        CommandItem aliasCommand,
+        string id = "CurrencyConverterExtensionPage")
     {
+        Id = id;
         Icon = IconManager.Icon;
         Title = "Currency Converter";
         Name = "Convert";
         ShowDetails = true;
+        EmptyContent = new ListItem(new NoOpCommand())
+        {
+            Title = "No conversion results",
+            Subtitle = "Try a query like 100 USD to EUR",
+            Icon = IconManager.Icon,
+        };
 
         _settings = settings;
         _aliasManager = aliasManager;
-        _converter = new(_settings, aliasManager);
+        _converter = converter;
 
         _todaysRatesItem = new ListItem(todaysRatesCommand.Command!)
         {
@@ -57,11 +67,62 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         };
     }
 
+    /// <summary>
+    /// Pre-fills the search box when the home-page fallback matches a conversion query.
+    /// </summary>
+    internal void ApplyFallbackQuery(string query)
+    {
+        if (SearchText == query)
+        {
+            return;
+        }
+
+        CancelPendingWork();
+        SearchText = query;
+        OnPropertyChanged(nameof(SearchText));
+        // Leave _lastRequestedSearch null so GetItems starts conversion when the page is shown.
+        _lastRequestedSearch = null;
+        _items = [];
+        IsLoading = false;
+    }
+
+    internal void ClearFallbackQuery()
+    {
+        if (string.IsNullOrEmpty(SearchText) && _lastRequestedSearch is null)
+        {
+            return;
+        }
+
+        CancelPendingWork();
+        SearchText = string.Empty;
+        OnPropertyChanged(nameof(SearchText));
+        _lastRequestedSearch = null;
+        _items = [];
+        IsLoading = false;
+    }
+
+    private void CancelPendingWork()
+    {
+        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, null);
+        previousDebounce?.Cancel();
+        previousDebounce?.Dispose();
+
+        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, null);
+        previousConversion?.Cancel();
+        previousConversion?.Dispose();
+    }
+
     public override IListItem[] GetItems()
     {
         if (SearchText.Length == 0)
         {
             return FallbackItems();
+        }
+
+        if (_lastRequestedSearch != SearchText)
+        {
+            _lastRequestedSearch = SearchText;
+            _ = DebounceAndConvertAsync(SearchText);
         }
 
         return _items;
@@ -73,6 +134,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
          {
              SearchText = text;
              OnPropertyChanged(nameof(SearchText));
+             _lastRequestedSearch = text;
              _ = DebounceAndConvertAsync(text);
          })
         {
@@ -168,6 +230,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         if (oldSearch != newSearch)
         {
+            _lastRequestedSearch = newSearch;
             _ = DebounceAndConvertAsync(newSearch);
         }
     }
@@ -261,10 +324,6 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
     public void Dispose()
     {
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        _conversionCts?.Cancel();
-        _conversionCts?.Dispose();
-        _converter.Dispose();
+        CancelPendingWork();
     }
 }

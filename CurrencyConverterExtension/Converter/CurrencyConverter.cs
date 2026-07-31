@@ -178,8 +178,13 @@ internal sealed partial class CurrencyConverter : IDisposable
             ListItem item = new(CreateCopyCommand(toFormatted))
             {
                 Title = _settings.OutputStyle == 0 ? compressedOutput : expandedOutput,
-                Subtitle = $"Currency conversion from {fromCode} to {toCode}",
+                Subtitle = $"Conversion from {fromCode} to {toCode}",
                 Icon = IconManager.Icon,
+                Tags =
+                [
+                    new Tag(fromCode),
+                    new Tag(toCode),
+                ],
                 Details = CreateConversionDetails(
                     fromFormatted,
                     fromCode,

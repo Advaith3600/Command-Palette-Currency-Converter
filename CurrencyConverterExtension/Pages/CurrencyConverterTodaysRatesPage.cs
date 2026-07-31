@@ -28,21 +28,31 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
     private CancellationTokenSource? _defaultCts;
     private int _defaultLoadInFlight;
 
+    /// <summary>Raised after the default rates view finishes loading (pins + quick rates).</summary>
+    public event Action? RatesRefreshed;
+
     public CurrencyConverterTodaysRatesPage(
         SettingsManager settings,
         AliasManager aliasManager,
-        PinnedConversionManager pinManager)
+        PinnedConversionManager pinManager,
+        CurrencyConverter converter)
     {
         Id = "CurrencyConverterTodaysRatesPage";
         Icon = IconManager.Icon;
         Title = "Today's rates";
         Name = "Today's rates";
         ShowDetails = true;
+        EmptyContent = new ListItem(new NoOpCommand())
+        {
+            Title = "No conversion results",
+            Subtitle = "Try a query like 34 BTC to AED, then press Enter to pin it",
+            Icon = IconManager.Icon,
+        };
 
         _settings = settings;
         _aliasManager = aliasManager;
         _pinManager = pinManager;
-        _converter = new(_settings, aliasManager);
+        _converter = converter;
     }
 
     public override IListItem[] GetItems()
@@ -223,6 +233,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
                 Interlocked.Exchange(ref _defaultLoadInFlight, 0);
                 IsLoading = false;
                 RaiseItemsChanged(0);
+                RatesRefreshed?.Invoke();
             }
         }
     }
@@ -369,6 +380,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             Subtitle = "Press Enter to pin this conversion",
             Icon = IconManager.Icon,
             Details = outcome.Item.Details,
+            Tags = outcome.Item.Tags,
             MoreCommands =
             [
                 new CommandContextItem(CurrencyConverter.CreateCopyCommand(outcome.ToFormatted))
@@ -392,6 +404,12 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             Subtitle = $"Pinned · {outcome.Item.Subtitle}",
             Icon = IconManager.Icon,
             Details = outcome.Item.Details,
+            Tags =
+            [
+                new Tag(outcome.FromCurrency.ToUpperInvariant()),
+                new Tag(outcome.ToCurrency.ToUpperInvariant()),
+                new Tag("Pinned"),
+            ],
             MoreCommands =
             [
                 new CommandContextItem(unpinCommand)
@@ -422,6 +440,5 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         _conversionCts?.Dispose();
         _defaultCts?.Cancel();
         _defaultCts?.Dispose();
-        _converter.Dispose();
     }
 }

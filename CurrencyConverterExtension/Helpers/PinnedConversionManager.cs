@@ -19,6 +19,8 @@ internal class PinnedConversionManager
 
     public bool IsInitialized => _initialized;
 
+    public event Action? PinsChanged;
+
     public PinnedConversionManager()
     {
     }
@@ -160,6 +162,7 @@ internal class PinnedConversionManager
         if (changed)
         {
             await SavePinsAsync().ConfigureAwait(false);
+            PinsChanged?.Invoke();
         }
     }
 
@@ -175,6 +178,7 @@ internal class PinnedConversionManager
         if (removed)
         {
             await SavePinsAsync().ConfigureAwait(false);
+            PinsChanged?.Invoke();
         }
     }
 
