@@ -31,7 +31,7 @@ internal sealed partial class PinConversionCommand : InvokableCommand
                 await _pinManager.AddPinAsync(_pin).ConfigureAwait(false);
                 ItemsChanged?.Invoke();
                 new ToastStatusMessage(
-                    $"Pinned {_pin.Amount.ToString(System.Globalization.CultureInfo.CurrentCulture)} {_pin.FromCurrency.ToUpperInvariant()} to {_pin.ToCurrency.ToUpperInvariant()}").Show();
+                    $"Pinned {_pin.Amount.ToString("N", System.Globalization.CultureInfo.CurrentCulture)} {_pin.FromCurrency.ToUpperInvariant()} to {_pin.ToCurrency.ToUpperInvariant()}").Show();
             }
             catch (Exception ex)
             {

@@ -19,6 +19,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     internal readonly SettingsManager _settings;
     internal readonly CurrencyConverter _converter;
     internal readonly AliasManager _aliasManager;
+    internal readonly PinnedConversionManager _pinManager;
 
     internal const string GithubReadmeURL = "https://github.com/Advaith3600/Command-Palette-Currency-Converter?tab=readme-ov-file";
 
@@ -32,6 +33,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     public CurrencyConverterExtensionPage(
         SettingsManager settings,
         AliasManager aliasManager,
+        PinnedConversionManager pinManager,
         CurrencyConverter converter,
         CommandItem todaysRatesCommand,
         CommandItem aliasCommand,
@@ -51,6 +53,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
         _settings = settings;
         _aliasManager = aliasManager;
+        _pinManager = pinManager;
         _converter = converter;
 
         _todaysRatesItem = new ListItem(todaysRatesCommand.Command!)
@@ -199,10 +202,16 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                 Subtitle = "Opens the full currencies list (JSON)",
                 Icon = IconManager.Icon,
             },
+            new ListItem(_settings.Settings.SettingsPage)
+            {
+                Title = "Open settings",
+                Subtitle = "Local currency, quick conversion currencies, API, and more",
+                Icon = IconManager.Icon,
+            },
         ];
     }
 
-    private async Task<List<ListItem>> ParseQueryAsync(string search, CancellationToken cancellationToken)
+    private async Task<List<IListItem>> ParseQueryAsync(string search, CancellationToken cancellationToken)
     {
         var parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
 
@@ -217,13 +226,34 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                     Icon = IconManager.WarningIcon,
                 }
             ],
-            QueryParseStatus.Success => await _converter.GetConversionResultsAsync(
-                parseResult.Query!.Value.Amount,
-                parseResult.Query.Value.FromCurrency,
-                parseResult.Query.Value.ToCurrency,
-                cancellationToken).ConfigureAwait(false),
+            QueryParseStatus.Success => await BuildConversionItemsAsync(parseResult.Query!.Value, cancellationToken).ConfigureAwait(false),
             _ => [],
         };
+    }
+
+    private async Task<List<IListItem>> BuildConversionItemsAsync(ParsedQuery query, CancellationToken cancellationToken)
+    {
+        List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
+            query.Amount,
+            query.FromCurrency,
+            query.ToCurrency,
+            cancellationToken).ConfigureAwait(false);
+
+        return [.. outcomes
+            .GroupBy(o => new { o.Item.Title, o.Item.Subtitle })
+            .Select(g => g.First())
+            .Select(o => ConversionResultItemFactory.Create(o, _pinManager, OnPinned))];
+    }
+
+    private void OnPinned()
+    {
+        if (string.IsNullOrEmpty(SearchText))
+        {
+            return;
+        }
+
+        // Skip debounce so the pinned/unpinned state updates immediately.
+        _ = ConvertNowAsync(SearchText);
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
@@ -251,6 +281,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             return;
         }
 
+        await ConvertNowAsync(search).ConfigureAwait(false);
+    }
+
+    private async Task ConvertNowAsync(string search)
+    {
         if (string.IsNullOrEmpty(search))
         {
             IsLoading = false;
@@ -271,6 +306,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         try
         {
             await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+            await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
             try
@@ -292,9 +328,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             }
 
             var results = await ParseQueryAsync(search, ct).ConfigureAwait(false);
-            _items = [.. results
-                .GroupBy(r => new { r.Title, r.Subtitle })
-                .Select(g => g.First())];
+            _items = [.. results];
         }
         catch (OperationCanceledException)
         {

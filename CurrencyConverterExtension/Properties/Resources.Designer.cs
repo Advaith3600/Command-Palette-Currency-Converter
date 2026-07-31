@@ -115,24 +115,6 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Quick Conversion Direction.
-        /// </summary>
-        internal static string conversion_direction {
-            get {
-                return ResourceManager.GetString("conversion_direction", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Set the sort order for the quick conversion output.
-        /// </summary>
-        internal static string conversion_direction_description {
-            get {
-                return ResourceManager.GetString("conversion_direction_description", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Quick Conversion Currencies.
         /// </summary>
         internal static string currencies {
@@ -210,60 +192,6 @@ namespace CurrencyConverterExtension.Properties {
         internal static string local_currency_description {
             get {
                 return ResourceManager.GetString("local_currency_description", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Local currency to other currencies.
-        /// </summary>
-        internal static string local_to_other {
-            get {
-                return ResourceManager.GetString("local_to_other", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Other currencies to local currency.
-        /// </summary>
-        internal static string other_to_local {
-            get {
-                return ResourceManager.GetString("other_to_local", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Conversion Output Style.
-        /// </summary>
-        internal static string output_style {
-            get {
-                return ResourceManager.GetString("output_style", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Full Text: 2 USD = 1.86 EUR, Short Text: 1.86 EUR.
-        /// </summary>
-        internal static string output_style_description {
-            get {
-                return ResourceManager.GetString("output_style_description", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Full Text.
-        /// </summary>
-        internal static string output_style_full_text {
-            get {
-                return ResourceManager.GetString("output_style_full_text", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Short Text.
-        /// </summary>
-        internal static string output_style_short_text {
-            get {
-                return ResourceManager.GetString("output_style_short_text", resourceCulture);
             }
         }
         

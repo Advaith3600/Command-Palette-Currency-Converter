@@ -135,12 +135,6 @@
   <data name="conversion_api_description" xml:space="preserve">
     <value>Use 'Default' if you are not sure which one to use. Be sure to read the plugin's readme file on GitHub if you plan to change this option to avoid any side effects.</value>
   </data>
-  <data name="conversion_direction" xml:space="preserve">
-    <value>Quick Conversion Direction</value>
-  </data>
-  <data name="conversion_direction_description" xml:space="preserve">
-    <value>Set the sort order for the quick conversion output</value>
-  </data>
   <data name="currencies" xml:space="preserve">
     <value>Quick Conversion Currencies</value>
   </data>
@@ -167,24 +161,6 @@
   </data>
   <data name="local_currency_description" xml:space="preserve">
     <value>Set your local currency for quick conversion</value>
-  </data>
-  <data name="local_to_other" xml:space="preserve">
-    <value>Local currency to other currencies</value>
-  </data>
-  <data name="other_to_local" xml:space="preserve">
-    <value>Other currencies to local currency</value>
-  </data>
-  <data name="output_style" xml:space="preserve">
-    <value>Conversion Output Style</value>
-  </data>
-  <data name="output_style_description" xml:space="preserve">
-    <value>Full Text: 2 USD = 1.86 EUR, Short Text: 1.86 EUR</value>
-  </data>
-  <data name="output_style_full_text" xml:space="preserve">
-    <value>Full Text</value>
-  </data>
-  <data name="output_style_short_text" xml:space="preserve">
-    <value>Short Text</value>
   </data>
   <data name="use_commas" xml:space="preserve">
     <value>Always use commas for decimals</value>

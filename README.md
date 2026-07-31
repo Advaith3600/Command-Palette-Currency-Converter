@@ -84,10 +84,7 @@ If your local currency matches every currency in the other-currencies list, a wa
 
 ### Output formatting and precision
 
-The extension supports two output styles:
-
-1. **Short text** — only the target currency (e.g. `1.86 EUR`)
-2. **Full text** — both source and target (e.g. `2 USD = 1.86 EUR`)
+Conversion titles always show both source and target (e.g. `2 USD → 1.86 EUR`).
 
 Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
 

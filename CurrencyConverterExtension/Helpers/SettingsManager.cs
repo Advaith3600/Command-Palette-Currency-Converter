@@ -13,21 +13,14 @@ namespace CurrencyConverterExtension.Helpers
         private static readonly string _namespace = "currency-converter";
         private static string Namespaced(string propertyName) => $"{_namespace}.{propertyName}";
 
-        private readonly ChoiceSetSetting _outputStyle = new(
-            Namespaced(nameof(OutputStyle)),
-            Resources.output_style,
-            Resources.output_style_description,
-            new()
-            {
-                new(Resources.output_style_short_text, "0"),
-                new(Resources.output_style_full_text, "1"),
-            })
-        { Value = "1" };
+        // CmdPal often only renders Description; include the title so it stays visible.
+        private static string WithTitle(string title, string description) =>
+            string.IsNullOrEmpty(description) ? title : $"{title}\n{description}";
 
         private readonly ChoiceSetSetting _decimalSeparator = new(
             Namespaced(nameof(DecimalSeparator)),
             Resources.decimal_separator,
-            Resources.decimal_separator_description,
+            WithTitle(Resources.decimal_separator, Resources.decimal_separator_description),
             new()
             {
                 new(Resources.use_system_default, "0"),
@@ -36,39 +29,28 @@ namespace CurrencyConverterExtension.Helpers
             })
         { Value = "0" };
 
-        private readonly ChoiceSetSetting _conversionDirection = new(
-            Namespaced(nameof(ConversionDirection)),
-            Resources.conversion_direction,
-            Resources.conversion_direction_description,
-            new()
-            {
-                new(Resources.local_to_other, "0"),
-                new(Resources.other_to_local, "1"),
-            })
-        { Value = "0" };
-
         private readonly TextSetting _localCurrency = new(
             Namespaced(nameof(LocalCurrency)),
             Resources.local_currency,
-            Resources.local_currency_description,
+            WithTitle(Resources.local_currency, Resources.local_currency_description),
             new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol);
 
         private readonly TextSetting _currencies = new(
             Namespaced(nameof(Currencies)),
             Resources.currencies,
-            Resources.currencies_description,
+            WithTitle(Resources.currencies, Resources.currencies_description),
             "USD");
 
         private readonly TextSetting _conversionCacheDuration = new(
             Namespaced(nameof(ConversionCacheDuration)),
             Resources.cache_duration,
-            Resources.cache_duration_description,
+            WithTitle(Resources.cache_duration, Resources.cache_duration_description),
             "3");
 
         private readonly ChoiceSetSetting _conversionAPI = new(
             Namespaced(nameof(ConversionAPI)),
             Resources.conversion_api,
-            Resources.conversion_api_description,
+            WithTitle(Resources.conversion_api, Resources.conversion_api_description),
             new()
             {
                 new(Resources.default_api, ((int)ConverterSettingsApi.Default).ToString(CultureInfo.InvariantCulture)),
@@ -80,15 +62,13 @@ namespace CurrencyConverterExtension.Helpers
         private readonly TextSetting _conversionAPIKey = new(
             Namespaced(nameof(ConversionAPIKey)),
             Resources.api_key,
-            Resources.api_key_description,
+            WithTitle(Resources.api_key, Resources.api_key_description),
             "");
 
-        public int OutputStyle => int.TryParse(_outputStyle.Value, out int outputStyle) ? outputStyle : 1;
         public int DecimalSeparator => int.TryParse(_decimalSeparator.Value, out int decimalSeparator) ? decimalSeparator : 0;
-        public int ConversionDirection => int.TryParse(_conversionDirection.Value, out int conversionDirection) ? conversionDirection : 0;
         public string LocalCurrency => string.IsNullOrWhiteSpace(_localCurrency.Value)
             ? new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol
-            : _localCurrency.Value;
+            : _localCurrency.Value.Trim();
         public string[] Currencies => string.IsNullOrWhiteSpace(_currencies.Value)
             ? ["USD"]
             : [.. _currencies.Value.Split(',').Select(x => x.Trim()).Where(x => x.Length > 0)];
@@ -115,11 +95,9 @@ namespace CurrencyConverterExtension.Helpers
         public SettingsManager()
         {
             FilePath = SettingsJsonPath();
-            Settings.Add(_outputStyle);
-            Settings.Add(_decimalSeparator);
-            Settings.Add(_conversionDirection);
             Settings.Add(_localCurrency);
             Settings.Add(_currencies);
+            Settings.Add(_decimalSeparator);
             Settings.Add(_conversionCacheDuration);
             Settings.Add(_conversionAPI);
             Settings.Add(_conversionAPIKey);

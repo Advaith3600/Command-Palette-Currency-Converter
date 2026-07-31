@@ -68,6 +68,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         CurrencyConverterExtensionPage mainPage = new(
             _settingsManager,
             _aliasManager,
+            _pinManager,
             _converter,
             _todaysRatesCommand,
             _aliasCommand);
@@ -86,6 +87,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         CurrencyConverterExtensionPage fallbackPage = new(
             _settingsManager,
             _aliasManager,
+            _pinManager,
             _converter,
             _todaysRatesCommand,
             _aliasCommand,
@@ -157,26 +159,22 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
                 new ListItem(_todaysRatesCommand.Command!)
                 {
                     Title = "Pin conversions",
-                    Subtitle = "Open Today's rates to pin pairs for the Dock",
+                    Subtitle = "Pin a conversion from Currency Converter or Today's rates",
                     Icon = Icon,
                 }
             ];
         }
 
-        List<IListItem> items = [];
-        foreach (PinnedConversion pin in pins)
-        {
-            items.Add(await CreatePinnedDockItemAsync(pin).ConfigureAwait(false));
-        }
-
-        return [.. items];
+        return await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
+            pins,
+            CreatePinnedDockItemAsync).ConfigureAwait(false);
     }
 
     private async Task<IListItem> CreatePinnedDockItemAsync(PinnedConversion pin)
     {
         string from = pin.FromCurrency.ToUpperInvariant();
         string to = pin.ToCurrency.ToUpperInvariant();
-        string amount = pin.Amount.ToString(CultureInfo.CurrentCulture);
+        string amount = pin.Amount.ToString("N", CultureInfo.CurrentCulture);
         string pairLabel = $"{amount} {from} → {to}";
         string commandId = $"CurrencyConverter.Dock.Pin.{pin.Amount.ToString(CultureInfo.InvariantCulture)}.{pin.FromCurrency}.{pin.ToCurrency}";
 
@@ -190,39 +188,64 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             ConversionOutcome? success = outcomes.FirstOrDefault(o => o.IsSuccess);
             if (success is null)
             {
-                return CreateDockPlaceholderItem(pairLabel, commandId);
+                return CreateDockPlaceholderItem(pairLabel, commandId, pin);
             }
 
             CopyTextCommand copyCommand = CurrencyConverter.CreateCopyCommand(success.ToFormatted);
             copyCommand.Id = commandId;
+
+            UnpinConversionCommand unpinCommand = new(_pinManager, pin);
 
             return new ListItem(copyCommand)
             {
                 Title = $"{success.ToFormatted} {success.ToCurrency.ToUpperInvariant()}",
                 Subtitle = pairLabel,
                 Icon = Icon,
-                Details = success.Item.Details,
+                Details = CurrencyConverter.CreateConversionDetails(
+                    pin.Amount.ToString("N", CultureInfo.CurrentCulture),
+                    from,
+                    success.ToFormatted,
+                    to,
+                    success.Rate,
+                    success.RateUpdatedAt,
+                    "Pinned"),
                 Tags =
                 [
+                    new Tag("Pinned"),
                     new Tag(from),
                     new Tag(to),
-                    new Tag("Pinned"),
+                ],
+                MoreCommands =
+                [
+                    new CommandContextItem(unpinCommand)
                 ],
             };
         }
         catch (Exception)
         {
-            return CreateDockPlaceholderItem(pairLabel, commandId);
+            return CreateDockPlaceholderItem(pairLabel, commandId, pin);
         }
     }
 
-    private ListItem CreateDockPlaceholderItem(string pairLabel, string commandId) =>
-        new(new NoOpCommand { Id = commandId })
+    private ListItem CreateDockPlaceholderItem(string pairLabel, string commandId, PinnedConversion pin)
+    {
+        UnpinConversionCommand unpinCommand = new(_pinManager, pin);
+
+        return new ListItem(new NoOpCommand { Id = commandId })
         {
             Title = pairLabel,
             Subtitle = string.Empty,
             Icon = Icon,
+            Tags =
+            [
+                new Tag("Pinned"),
+            ],
+            MoreCommands =
+            [
+                new CommandContextItem(unpinCommand)
+            ],
         };
+    }
 
     public override ICommandItem? GetCommandItem(string id)
     {

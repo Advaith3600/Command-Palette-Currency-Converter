@@ -2,7 +2,6 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using CurrencyConverterExtension.Commands;
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
@@ -53,6 +52,17 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         _aliasManager = aliasManager;
         _pinManager = pinManager;
         _converter = converter;
+
+        // Keep default view in sync when pins change from the main converter (or elsewhere).
+        _pinManager.PinsChanged += OnPinsChangedExternally;
+    }
+
+    private void OnPinsChangedExternally()
+    {
+        if (string.IsNullOrEmpty(SearchText))
+        {
+            _ = LoadDefaultViewAsync();
+        }
     }
 
     public override IListItem[] GetItems()
@@ -143,24 +153,43 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             List<IListItem> items = [];
             List<PinnedConversion> pins = _pinManager.GetAllPins();
 
-            foreach (PinnedConversion pin in pins)
-            {
-                ct.ThrowIfCancellationRequested();
-                List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
-                    pin.Amount,
-                    pin.FromCurrency,
-                    pin.ToCurrency,
-                    ct).ConfigureAwait(false);
-
-                foreach (ConversionOutcome outcome in outcomes)
-                {
-                    items.Add(CreatePinnedItem(outcome, pin));
-                }
-            }
-
             if (pins.Count == 0)
             {
                 items.Add(CreateHintItem());
+            }
+            else
+            {
+                ct.ThrowIfCancellationRequested();
+                List<ConversionOutcome>[] outcomesByPin =
+                    await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
+                        pins,
+                        pin => _converter.GetConversionOutcomesAsync(
+                            pin.Amount,
+                            pin.FromCurrency,
+                            pin.ToCurrency,
+                            ct)).ConfigureAwait(false);
+
+                ct.ThrowIfCancellationRequested();
+                for (int i = 0; i < pins.Count; i++)
+                {
+                    PinnedConversion pin = pins[i];
+                    List<ConversionOutcome> outcomes = outcomesByPin[i];
+
+                    if (outcomes.Count == 0)
+                    {
+                        items.Add(ConversionResultItemFactory.CreatePinnedPlaceholder(pin, _pinManager, OnPinned));
+                        continue;
+                    }
+
+                    foreach (ConversionOutcome outcome in outcomes)
+                    {
+                        items.Add(ConversionResultItemFactory.Create(
+                            outcome,
+                            _pinManager,
+                            OnPinned,
+                            treatAsPinned: true));
+                    }
+                }
             }
 
             string local = _settings.LocalCurrency.Trim();
@@ -360,61 +389,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         return [.. outcomes
             .GroupBy(o => new { o.Item.Title, o.Item.Subtitle })
             .Select(g => g.First())
-            .Select(CreateSearchResultItem)];
-    }
-
-    private IListItem CreateSearchResultItem(ConversionOutcome outcome)
-    {
-        if (!outcome.IsSuccess)
-        {
-            return outcome.Item;
-        }
-
-        PinnedConversion pin = new(outcome.Amount, outcome.FromCurrency, outcome.ToCurrency);
-        PinConversionCommand pinCommand = new(_pinManager, pin);
-        pinCommand.ItemsChanged += OnPinned;
-
-        return new ListItem(pinCommand)
-        {
-            Title = outcome.Item.Title,
-            Subtitle = "Press Enter to pin this conversion",
-            Icon = IconManager.Icon,
-            Details = outcome.Item.Details,
-            Tags = outcome.Item.Tags,
-            MoreCommands =
-            [
-                new CommandContextItem(CurrencyConverter.CreateCopyCommand(outcome.ToFormatted))
-            ]
-        };
-    }
-
-    private ListItem CreatePinnedItem(ConversionOutcome outcome, PinnedConversion pin)
-    {
-        if (!outcome.IsSuccess)
-        {
-            return outcome.Item;
-        }
-
-        UnpinConversionCommand unpinCommand = new(_pinManager, pin);
-        unpinCommand.ItemsChanged += OnPinned;
-
-        return new ListItem(CurrencyConverter.CreateCopyCommand(outcome.ToFormatted))
-        {
-            Title = outcome.Item.Title,
-            Subtitle = $"Pinned · {outcome.Item.Subtitle}",
-            Icon = IconManager.Icon,
-            Details = outcome.Item.Details,
-            Tags =
-            [
-                new Tag(outcome.FromCurrency.ToUpperInvariant()),
-                new Tag(outcome.ToCurrency.ToUpperInvariant()),
-                new Tag("Pinned"),
-            ],
-            MoreCommands =
-            [
-                new CommandContextItem(unpinCommand)
-            ]
-        };
+            .Select(o => ConversionResultItemFactory.Create(o, _pinManager, OnPinned, ConversionPinAction.Primary))];
     }
 
     private static ListItem CreateHintItem() =>
@@ -427,6 +402,14 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
 
     private void OnPinned()
     {
+        // When search is already empty, PinsChanged → OnPinsChangedExternally reloads.
+        // When pinning from search, PinsChanged fires while search is non-empty (skipped),
+        // so clear search and reload here.
+        if (string.IsNullOrEmpty(SearchText))
+        {
+            return;
+        }
+
         SearchText = string.Empty;
         OnPropertyChanged(nameof(SearchText));
         _ = LoadDefaultViewAsync();
@@ -434,6 +417,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
 
     public void Dispose()
     {
+        _pinManager.PinsChanged -= OnPinsChangedExternally;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
         _conversionCts?.Cancel();

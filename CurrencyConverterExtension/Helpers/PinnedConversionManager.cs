@@ -2,17 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Data.Json;
 using Windows.Storage;
 
 namespace CurrencyConverterExtension.Helpers;
 
+#pragma warning disable CA1001 // SemaphoreSlim lives for extension process lifetime
 internal class PinnedConversionManager
 {
     private const string PinFileName = "pinned_conversions.json";
     private readonly object _gate = new();
     private readonly object _initGate = new();
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
+#pragma warning restore CA1001
     private List<PinnedConversion> _pins = [];
     private bool _initialized;
     private Task? _initTask;
@@ -144,41 +148,57 @@ internal class PinnedConversionManager
 
     public async Task AddPinAsync(PinnedConversion pin)
     {
-        PinnedConversion normalized = Normalize(pin);
-        bool changed;
-        lock (_gate)
+        await _saveLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            if (_pins.Contains(normalized))
+            PinnedConversion normalized = Normalize(pin);
+            bool changed;
+            lock (_gate)
             {
-                changed = false;
+                if (_pins.Contains(normalized))
+                {
+                    changed = false;
+                }
+                else
+                {
+                    _pins.Add(normalized);
+                    changed = true;
+                }
             }
-            else
+
+            if (changed)
             {
-                _pins.Add(normalized);
-                changed = true;
+                await SavePinsAsync().ConfigureAwait(false);
+                PinsChanged?.Invoke();
             }
         }
-
-        if (changed)
+        finally
         {
-            await SavePinsAsync().ConfigureAwait(false);
-            PinsChanged?.Invoke();
+            _saveLock.Release();
         }
     }
 
     public async Task RemovePinAsync(PinnedConversion pin)
     {
-        PinnedConversion normalized = Normalize(pin);
-        bool removed;
-        lock (_gate)
+        await _saveLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            removed = _pins.Remove(normalized);
-        }
+            PinnedConversion normalized = Normalize(pin);
+            bool removed;
+            lock (_gate)
+            {
+                removed = _pins.Remove(normalized);
+            }
 
-        if (removed)
+            if (removed)
+            {
+                await SavePinsAsync().ConfigureAwait(false);
+                PinsChanged?.Invoke();
+            }
+        }
+        finally
         {
-            await SavePinsAsync().ConfigureAwait(false);
-            PinsChanged?.Invoke();
+            _saveLock.Release();
         }
     }
 

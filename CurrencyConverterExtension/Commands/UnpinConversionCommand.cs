@@ -25,7 +25,7 @@ internal sealed partial class UnpinConversionCommand : InvokableCommand
     public override CommandResult Invoke()
     {
         string label =
-            $"{_pin.Amount.ToString(CultureInfo.CurrentCulture)} {_pin.FromCurrency.ToUpperInvariant()} to {_pin.ToCurrency.ToUpperInvariant()}";
+            $"{_pin.Amount.ToString("N", CultureInfo.CurrentCulture)} {_pin.FromCurrency.ToUpperInvariant()} to {_pin.ToCurrency.ToUpperInvariant()}";
 
         return CommandResult.Confirm(new()
         {
