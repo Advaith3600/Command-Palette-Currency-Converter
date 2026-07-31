@@ -130,7 +130,7 @@ public class CurrencyConverterTests
         var tagTexts = detailsTags.Tags!.Select(t => t.Text).ToList();
         Assert.Equal(["USD", "INR"], tagTexts);
 
-        Assert.Contains(details.Metadata!, m => m.Key == "Fetched");
+        Assert.Contains(details.Metadata!, m => m.Key == "Updated at");
     }
 
     [Fact]
@@ -353,6 +353,56 @@ public class CurrencyConverterTests
         });
 
         Assert.Throws<InvalidOperationException>(() => converter.ValidateConversionAPI());
+    }
+
+    [Fact]
+    public async Task InvalidateCacheForFromCurrency_ForcesRefetchForThatBaseOnly()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        int requests = 0;
+        var handler = CreateDefaultHandler(() => requests++);
+        using var converter = CreateConverter(handler: handler);
+
+        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+        _ = await converter.GetConversionOutcomesAsync(100m, "eur", "usd", TestContext.Current.CancellationToken);
+        Assert.Equal(2, requests);
+
+        converter.InvalidateCacheForFromCurrency("usd");
+
+        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "eur", TestContext.Current.CancellationToken);
+        Assert.Equal(3, requests);
+
+        // EUR base still warm — no extra request.
+        _ = await converter.GetConversionOutcomesAsync(50m, "eur", "inr", TestContext.Current.CancellationToken);
+        Assert.Equal(3, requests);
+    }
+
+    [Fact]
+    public async Task InvalidateCacheFromPreviousDays_RemovesYesterdayKeepsToday()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        int requests = 0;
+        var handler = CreateDefaultHandler(() => requests++);
+        using var converter = CreateConverter(handler: handler);
+
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+        DateTime yesterdayUtc = DateTime.UtcNow.Date.AddDays(-1).AddHours(12);
+
+        converter.SeedCacheEntry("usd", "inr", 80m, yesterdayUtc);
+        converter.SeedCacheEntry("usd", "eur", 0.9m, DateTime.UtcNow);
+
+        converter.InvalidateCacheFromPreviousDays(today);
+
+        // Yesterday's USD→INR removed → network fetch.
+        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+        Assert.Equal(1, requests);
+
+        // Today's USD→EUR still cached (also re-warmed by the USD fetch above for sibling targets).
+        // Seed a fresh "today" EUR base that was not touched by the USD response.
+        converter.SeedCacheEntry("eur", "usd", 1.1m, DateTime.UtcNow);
+        int requestsBeforeEur = requests;
+        _ = await converter.GetConversionOutcomesAsync(100m, "eur", "usd", TestContext.Current.CancellationToken);
+        Assert.Equal(requestsBeforeEur, requests);
     }
 }
 

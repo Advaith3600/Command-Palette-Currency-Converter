@@ -7,12 +7,6 @@ using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension;
 
@@ -27,8 +21,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
     private readonly AliasManager _aliasManager = new();
     private readonly PinnedConversionManager _pinManager = new();
     private readonly CurrencyConverter _converter;
-    private WrappedDockItem? _pinnedDockBand;
-    private int _dockRefreshVersion;
+    private readonly PinnedDockBandManager _dockBandManager;
 
     public CurrencyConverterExtensionCommandsProvider()
     {
@@ -47,9 +40,6 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             _aliasManager,
             _pinManager,
             _converter);
-        // Pin/unpin and today's-rates reload both notify; RefreshDockBandAsync coalesces concurrent calls.
-        todaysRatesPage.RatesRefreshed += OnDockDataChanged;
-        _pinManager.PinsChanged += OnDockDataChanged;
 
         _todaysRatesCommand = new CommandItem(todaysRatesPage)
         {
@@ -94,6 +84,16 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             "CurrencyConverterExtensionPage.Fallback");
         _fallbackItem = new CurrencyConverterFallbackItem(fallbackPage, _settingsManager);
 
+        // Pin/unpin and today's-rates reload both notify; RefreshAsync coalesces concurrent calls.
+        _dockBandManager = new PinnedDockBandManager(
+            _converter,
+            _pinManager,
+            _aliasManager,
+            Icon,
+            _todaysRatesCommand.Command!);
+        todaysRatesPage.RatesRefreshed += () => _ = _dockBandManager.RefreshAsync();
+        _pinManager.PinsChanged += () => _ = _dockBandManager.RefreshAsync();
+
         _commands = [_mainCommand];
     }
 
@@ -101,151 +101,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
 
     public override IFallbackCommandItem[] FallbackCommands() => [_fallbackItem];
 
-    public override ICommandItem[]? GetDockBands()
-    {
-        _pinnedDockBand ??= new WrappedDockItem(
-            [],
-            "CurrencyConverter.Dock.Pinned",
-            "Currency pins")
-        {
-            Icon = Icon,
-        };
-
-        // Pins and rates load async; update Items when ready (and on later GetDockBands calls).
-        _ = RefreshDockBandAsync();
-        return [_pinnedDockBand];
-    }
-
-    private void OnDockDataChanged() => _ = RefreshDockBandAsync();
-
-    private async Task RefreshDockBandAsync()
-    {
-        // Band may not exist yet if the host has not asked for dock bands.
-        if (_pinnedDockBand is null)
-        {
-            return;
-        }
-
-        int version = Interlocked.Increment(ref _dockRefreshVersion);
-
-        try
-        {
-            await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
-            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
-
-            IListItem[] items = await BuildDockBandItemsAsync().ConfigureAwait(false);
-
-            // A newer refresh started while we were loading — drop this result.
-            if (version != Volatile.Read(ref _dockRefreshVersion))
-            {
-                return;
-            }
-
-            _pinnedDockBand.Items = items;
-        }
-        catch (Exception)
-        {
-            // Keep whatever items are currently shown.
-        }
-    }
-
-    private async Task<IListItem[]> BuildDockBandItemsAsync()
-    {
-        List<PinnedConversion> pins = _pinManager.GetAllPins();
-        if (pins.Count == 0)
-        {
-            return
-            [
-                new ListItem(_todaysRatesCommand.Command!)
-                {
-                    Title = "Pin conversions",
-                    Subtitle = "Pin a conversion from Currency Converter or Today's rates",
-                    Icon = Icon,
-                }
-            ];
-        }
-
-        return await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
-            pins,
-            CreatePinnedDockItemAsync).ConfigureAwait(false);
-    }
-
-    private async Task<IListItem> CreatePinnedDockItemAsync(PinnedConversion pin)
-    {
-        string from = pin.FromCurrency.ToUpperInvariant();
-        string to = pin.ToCurrency.ToUpperInvariant();
-        string amount = pin.Amount.ToString("N", CultureInfo.CurrentCulture);
-        string pairLabel = $"{amount} {from} → {to}";
-        string commandId = $"CurrencyConverter.Dock.Pin.{pin.Amount.ToString(CultureInfo.InvariantCulture)}.{pin.FromCurrency}.{pin.ToCurrency}";
-
-        try
-        {
-            List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
-                pin.Amount,
-                pin.FromCurrency,
-                pin.ToCurrency).ConfigureAwait(false);
-
-            ConversionOutcome? success = outcomes.FirstOrDefault(o => o.IsSuccess);
-            if (success is null)
-            {
-                return CreateDockPlaceholderItem(pairLabel, commandId, pin);
-            }
-
-            CopyTextCommand copyCommand = CurrencyConverter.CreateCopyCommand(success.ToFormatted);
-            copyCommand.Id = commandId;
-
-            UnpinConversionCommand unpinCommand = new(_pinManager, pin);
-
-            return new ListItem(copyCommand)
-            {
-                Title = $"{success.ToFormatted} {success.ToCurrency.ToUpperInvariant()}",
-                Subtitle = pairLabel,
-                Icon = Icon,
-                Details = CurrencyConverter.CreateConversionDetails(
-                    pin.Amount.ToString("N", CultureInfo.CurrentCulture),
-                    from,
-                    success.ToFormatted,
-                    to,
-                    success.Rate,
-                    success.RateUpdatedAt,
-                    "Pinned"),
-                Tags =
-                [
-                    new Tag("Pinned"),
-                    new Tag(from),
-                    new Tag(to),
-                ],
-                MoreCommands =
-                [
-                    new CommandContextItem(unpinCommand)
-                ],
-            };
-        }
-        catch (Exception)
-        {
-            return CreateDockPlaceholderItem(pairLabel, commandId, pin);
-        }
-    }
-
-    private ListItem CreateDockPlaceholderItem(string pairLabel, string commandId, PinnedConversion pin)
-    {
-        UnpinConversionCommand unpinCommand = new(_pinManager, pin);
-
-        return new ListItem(new NoOpCommand { Id = commandId })
-        {
-            Title = pairLabel,
-            Subtitle = string.Empty,
-            Icon = Icon,
-            Tags =
-            [
-                new Tag("Pinned"),
-            ],
-            MoreCommands =
-            [
-                new CommandContextItem(unpinCommand)
-            ],
-        };
-    }
+    public override ICommandItem[]? GetDockBands() => _dockBandManager.GetDockBands();
 
     public override ICommandItem? GetCommandItem(string id)
     {
@@ -264,9 +120,9 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             return _mainCommand;
         }
 
-        if (_pinnedDockBand?.Command?.Id == id)
+        if (_dockBandManager.Band?.Command?.Id == id)
         {
-            return _pinnedDockBand;
+            return _dockBandManager.Band;
         }
 
         return null;

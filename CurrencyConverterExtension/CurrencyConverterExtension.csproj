@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CommandPalette.Extensions" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
     <!-- Needed to enable building an MSIX package without WindowsAppSDK -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">

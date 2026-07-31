@@ -303,6 +303,55 @@ internal sealed partial class CurrencyConverter : IDisposable
             Icon = IconManager.WarningIcon,
         };
 
+    /// <summary>Removes all cached rates whose base (from) currency matches.</summary>
+    internal void InvalidateCacheForFromCurrency(string fromCurrency)
+    {
+        string resolved = GetCurrencyFromAlias(fromCurrency.Trim().ToLowerInvariant());
+        List<(string From, string To)> toRemove = [];
+
+        foreach ((string From, string To) key in _conversionCache.Keys)
+        {
+            if (string.Equals(key.From, resolved, StringComparison.OrdinalIgnoreCase))
+            {
+                toRemove.Add(key);
+            }
+        }
+
+        foreach ((string From, string To) key in toRemove)
+        {
+            _conversionCache.TryRemove(key, out _);
+        }
+    }
+
+    /// <summary>
+    /// Removes cache entries fetched before <paramref name="today"/> (local calendar day),
+    /// leaving same-day entries intact.
+    /// </summary>
+    internal void InvalidateCacheFromPreviousDays(DateOnly today)
+    {
+        List<(string From, string To)> toRemove = [];
+
+        foreach (KeyValuePair<(string From, string To), (decimal Rate, DateTime Timestamp)> kvp in _conversionCache)
+        {
+            DateOnly fetchedDay = DateOnly.FromDateTime(kvp.Value.Timestamp.ToLocalTime());
+            if (fetchedDay < today)
+            {
+                toRemove.Add(kvp.Key);
+            }
+        }
+
+        foreach ((string From, string To) key in toRemove)
+        {
+            _conversionCache.TryRemove(key, out _);
+        }
+    }
+
+    /// <summary>Test helper: insert a cache entry with an explicit timestamp.</summary>
+    internal void SeedCacheEntry(string fromCurrency, string toCurrency, decimal rate, DateTime timestampUtc)
+    {
+        _conversionCache[(fromCurrency.ToLowerInvariant(), toCurrency.ToLowerInvariant())] = (rate, timestampUtc);
+    }
+
     private async Task<(decimal Rate, DateTime UpdatedAt)> GetConversionRateAsync(
         string fromCurrency,
         string toCurrency,
