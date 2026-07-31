@@ -23,18 +23,36 @@ internal readonly record struct QueryParseResult(QueryParseStatus Status, Parsed
 
 internal static class QueryParser
 {
+    private const int MaxSearchLength = 128;
+    private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
+
     public static QueryParseResult Parse(string search, int decimalSeparatorMode)
     {
+        string trimmed = search.Trim();
+        if (trimmed.Length == 0 || trimmed.Length > MaxSearchLength)
+        {
+            return QueryParseResult.NoMatch();
+        }
+
         NumberFormatInfo formatter = GetNumberFormatInfo(decimalSeparatorMode);
         string decimalSeparator = Regex.Escape(formatter.CurrencyDecimalSeparator);
         string groupSeparator = Regex.Escape(formatter.CurrencyGroupSeparator);
 
-        string amountPattern = $@"(?<amount>(?:\d+|\s+|{decimalSeparator}|{groupSeparator}|[+\-*/()])+)";
+        // Avoid nested quantifiers like (?:\d+|\s+)+ which cause ReDoS on non-matches.
+        string amountPattern = $@"(?<amount>(?:[\d\s+\-*/()]|{decimalSeparator}|{groupSeparator})+)";
         string fromPattern = $@"(?<from>{AliasManager.KeyRegex})";
         string toPattern = $@"(?<to>{AliasManager.KeyRegex})";
-
         string pattern = $@"^\s*(?:(?:{amountPattern}\s*{fromPattern})|(?:{fromPattern}\s*{amountPattern}))\s*(?:to|in)?\s*{toPattern}\s*$";
-        Match match = Regex.Match(search.Trim(), pattern);
+
+        Match match;
+        try
+        {
+            match = Regex.Match(trimmed, pattern, RegexOptions.CultureInvariant, MatchTimeout);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return QueryParseResult.NoMatch();
+        }
 
         if (!match.Success)
         {
@@ -76,7 +94,8 @@ internal static class QueryParser
                 nfi.CurrencyGroupSeparator = ".";
                 break;
             default:
-                nfi = CultureInfo.CurrentCulture.NumberFormat;
+                // Clone so callers cannot mutate the live culture instance.
+                nfi = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
                 break;
         }
 

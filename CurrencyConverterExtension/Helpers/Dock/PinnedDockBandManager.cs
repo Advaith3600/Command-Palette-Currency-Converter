@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Helpers;
 
-internal sealed class PinnedDockBandManager
+internal sealed partial class PinnedDockBandManager : IDisposable
 {
     private readonly CurrencyConverter _converter;
     private readonly PinnedConversionManager _pinManager;
@@ -18,13 +18,16 @@ internal sealed class PinnedDockBandManager
     private readonly IconInfo _icon;
     private readonly ICommand _todaysRatesCommand;
     private readonly DockPinItemFactory _itemFactory;
+    private readonly object _publishGate = new();
 
     private WrappedDockItem? _pinnedDockBand;
-    private int _dockRefreshVersion;
-    private DateOnly? _lastDockRatesDay;
+    private int _lastDockRatesDayNumber; // 0 = never stamped; otherwise DateOnly.DayNumber
     private PeriodicTimer? _dockDayTimer;
     private CancellationTokenSource? _dockDayCts;
+    private CancellationTokenSource? _refreshCts;
     private int _dockDayMonitorStarted;
+    private int _dirty = 1; // Start dirty so the first GetDockBands loads pins/rates.
+    private int _disposed;
 
     internal PinnedDockBandManager(
         CurrencyConverter converter,
@@ -50,8 +53,12 @@ internal sealed class PinnedDockBandManager
     internal static bool NeedsDailyRefresh(DateOnly? lastRatesDay, DateOnly today) =>
         lastRatesDay != today;
 
+    internal void MarkDirty() => Interlocked.Exchange(ref _dirty, 1);
+
     internal ICommandItem[] GetDockBands()
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
         if (_pinnedDockBand is null)
         {
             _pinnedDockBand = new WrappedDockItem(
@@ -64,56 +71,98 @@ internal sealed class PinnedDockBandManager
             EnsureDayMonitor();
         }
 
-        // Pins and rates load async; update Items when ready (and on later GetDockBands calls).
-        _ = RefreshAsync();
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+        bool needsDay = NeedsDailyRefresh(ReadLastRatesDay(), today);
+        bool dirty = Volatile.Read(ref _dirty) != 0;
+
+        if (dirty || needsDay)
+        {
+            _ = RefreshAsync();
+        }
+
         return [_pinnedDockBand];
     }
 
     internal async Task RefreshAsync()
     {
-        // Band may not exist yet if the host has not asked for dock bands.
-        if (_pinnedDockBand is null)
+        if (_pinnedDockBand is null || Volatile.Read(ref _disposed) != 0)
         {
             return;
         }
 
-        int version = Interlocked.Increment(ref _dockRefreshVersion);
+        CancellationTokenSource refreshCts = new();
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _refreshCts, refreshCts);
+        previous?.Cancel();
+        previous?.Dispose();
+        CancellationToken ct = refreshCts.Token;
 
         try
         {
             await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
             await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
 
-            IListItem[] items = await BuildDockBandItemsAsync().ConfigureAwait(false);
+            (IListItem[] items, bool allSucceeded) = await BuildDockBandItemsAsync(ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
 
-            // A newer refresh started while we were loading — drop this result.
-            if (version != Volatile.Read(ref _dockRefreshVersion))
+            lock (_publishGate)
             {
-                return;
-            }
+                if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _refreshCts), refreshCts))
+                {
+                    return;
+                }
 
-            _pinnedDockBand.Items = items;
-            _lastDockRatesDay = DateOnly.FromDateTime(DateTime.Now);
+                _pinnedDockBand.Items = items;
+                Interlocked.Exchange(ref _dirty, 0);
+
+                // Only stamp the calendar day after a fully successful full-band refresh
+                // (or when there are no pins). Never stamp on placeholder-only failure.
+                if (allSucceeded)
+                {
+                    WriteLastRatesDay(DateOnly.FromDateTime(DateTime.Now));
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Newer refresh or dispose.
         }
         catch (Exception)
         {
             // Keep whatever items are currently shown; do not stamp the day.
         }
+        finally
+        {
+            if (ReferenceEquals(Volatile.Read(ref _refreshCts), refreshCts))
+            {
+                Interlocked.CompareExchange(ref _refreshCts, null, refreshCts);
+                refreshCts.Dispose();
+            }
+        }
     }
 
-    internal async Task RefreshGroupAsync(PinnedConversion pin)
+    /// <summary>
+    /// Refreshes all dock pins that share <paramref name="pin"/>'s from-currency.
+    /// Returns true when the group was updated on screen.
+    /// </summary>
+    internal async Task<bool> RefreshGroupAsync(PinnedConversion pin)
     {
-        if (_pinnedDockBand is null)
+        if (_pinnedDockBand is null || Volatile.Read(ref _disposed) != 0)
         {
-            return;
+            return false;
         }
 
-        int version = Interlocked.Increment(ref _dockRefreshVersion);
+        CancellationTokenSource refreshCts = new();
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _refreshCts, refreshCts);
+        previous?.Cancel();
+        previous?.Dispose();
+        CancellationToken ct = refreshCts.Token;
 
         try
         {
             await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
             await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
 
             _converter.InvalidateCacheForFromCurrency(pin.FromCurrency);
 
@@ -122,17 +171,13 @@ internal sealed class PinnedDockBandManager
 
             if (groupPins.Count == 0)
             {
-                return;
+                return false;
             }
 
-            IListItem[] refreshed = await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
-                groupPins,
-                _itemFactory.CreatePinnedDockItemAsync).ConfigureAwait(false);
+            IListItem[] refreshed = await Task.WhenAll(
+                groupPins.Select(p => _itemFactory.CreatePinnedDockItemAsync(p, ct))).ConfigureAwait(false);
 
-            if (version != Volatile.Read(ref _dockRefreshVersion))
-            {
-                return;
-            }
+            ct.ThrowIfCancellationRequested();
 
             Dictionary<string, IListItem> byId = [];
             foreach (IListItem item in refreshed)
@@ -144,37 +189,77 @@ internal sealed class PinnedDockBandManager
                 }
             }
 
-            IListItem[] current = _pinnedDockBand.Items ?? [];
-            IListItem[] merged = new IListItem[current.Length];
-            for (int i = 0; i < current.Length; i++)
+            lock (_publishGate)
             {
-                string? id = current[i].Command?.Id;
-                merged[i] = id is not null && byId.TryGetValue(id, out IListItem? updated)
-                    ? updated
-                    : current[i];
+                if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _refreshCts), refreshCts))
+                {
+                    return false;
+                }
+
+                IListItem[] current = _pinnedDockBand.Items ?? [];
+                IListItem[] merged = new IListItem[current.Length];
+                for (int i = 0; i < current.Length; i++)
+                {
+                    string? id = current[i].Command?.Id;
+                    merged[i] = id is not null && byId.TryGetValue(id, out IListItem? updated)
+                        ? updated
+                        : current[i];
+                }
+
+                _pinnedDockBand.Items = merged;
+                // Do not stamp _lastDockRatesDay — this is only one from-currency group.
             }
 
-            _pinnedDockBand.Items = merged;
-            _lastDockRatesDay = DateOnly.FromDateTime(DateTime.Now);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
         catch (Exception)
         {
             // Keep whatever items are currently shown for this group.
+            return false;
+        }
+        finally
+        {
+            if (ReferenceEquals(Volatile.Read(ref _refreshCts), refreshCts))
+            {
+                Interlocked.CompareExchange(ref _refreshCts, null, refreshCts);
+                refreshCts.Dispose();
+            }
         }
     }
 
-    private async Task<IListItem[]> BuildDockBandItemsAsync()
+    private async Task<(IListItem[] Items, bool AllSucceeded)> BuildDockBandItemsAsync(CancellationToken cancellationToken)
     {
         List<PinnedConversion> pins = _pinManager.GetAllPins();
         if (pins.Count == 0)
         {
-            return [_itemFactory.CreateEmptyPinsPlaceholder(_todaysRatesCommand)];
+            return ([_itemFactory.CreateEmptyPinsPlaceholder(_todaysRatesCommand)], true);
         }
 
-        return await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
-            pins,
-            _itemFactory.CreatePinnedDockItemAsync).ConfigureAwait(false);
+        (IListItem Item, bool Succeeded)[] results = await Task.WhenAll(
+            pins.Select(async pin =>
+            {
+                IListItem item = await _itemFactory.CreatePinnedDockItemAsync(pin, cancellationToken).ConfigureAwait(false);
+                bool succeeded = item.Command is CopyTextCommand;
+                return (item, succeeded);
+            })).ConfigureAwait(false);
+
+        IListItem[] items = [.. results.Select(r => r.Item)];
+        bool allSucceeded = results.All(r => r.Succeeded);
+        return (items, allSucceeded);
     }
+
+    private DateOnly? ReadLastRatesDay()
+    {
+        int dayNumber = _lastDockRatesDayNumber;
+        return dayNumber == 0 ? null : DateOnly.FromDayNumber(dayNumber);
+    }
+
+    private void WriteLastRatesDay(DateOnly day) =>
+        _lastDockRatesDayNumber = day.DayNumber;
 
     private void EnsureDayMonitor()
     {
@@ -184,8 +269,9 @@ internal sealed class PinnedDockBandManager
         }
 
         _dockDayCts = new CancellationTokenSource();
-        _dockDayTimer = new PeriodicTimer(TimeSpan.FromHours(1));
-        _ = RunDockDayMonitorAsync(_dockDayCts.Token);
+        PeriodicTimer timer = new(TimeSpan.FromHours(1));
+        _dockDayTimer = timer;
+        _ = RunDockDayMonitorAsync(timer, _dockDayCts.Token);
 
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
     }
@@ -198,12 +284,11 @@ internal sealed class PinnedDockBandManager
         }
     }
 
-    private async Task RunDockDayMonitorAsync(CancellationToken cancellationToken)
+    private async Task RunDockDayMonitorAsync(PeriodicTimer timer, CancellationToken cancellationToken)
     {
         try
         {
-            while (_dockDayTimer is not null &&
-                   await _dockDayTimer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
                 await CheckAndRefreshForNewDayAsync().ConfigureAwait(false);
             }
@@ -212,17 +297,48 @@ internal sealed class PinnedDockBandManager
         {
             // Extension process shutting down.
         }
+        catch (ObjectDisposedException)
+        {
+            // Timer disposed during shutdown.
+        }
     }
 
     private async Task CheckAndRefreshForNewDayAsync()
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        if (!NeedsDailyRefresh(_lastDockRatesDay, today))
+        if (!NeedsDailyRefresh(ReadLastRatesDay(), today))
         {
             return;
         }
 
         _converter.InvalidateCacheFromPreviousDays(today);
+        MarkDirty();
         await RefreshAsync().ConfigureAwait(false);
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        if (_dockDayMonitorStarted != 0)
+        {
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        }
+
+        CancellationTokenSource? dayCts = Interlocked.Exchange(ref _dockDayCts, null);
+        dayCts?.Cancel();
+        dayCts?.Dispose();
+
+        PeriodicTimer? timer = Interlocked.Exchange(ref _dockDayTimer, null);
+        timer?.Dispose();
+
+        CancellationTokenSource? refreshCts = Interlocked.Exchange(ref _refreshCts, null);
+        refreshCts?.Cancel();
+        refreshCts?.Dispose();
+
+        Interlocked.Exchange(ref _dockDayMonitorStarted, 0);
     }
 }

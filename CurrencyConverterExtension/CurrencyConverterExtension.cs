@@ -30,5 +30,9 @@ public sealed partial class CurrencyConverterExtension : IExtension, IDisposable
         };
     }
 
-    public void Dispose() => this._extensionDisposedEvent.Set();
+    public void Dispose()
+    {
+        _provider.Dispose();
+        this._extensionDisposedEvent.Set();
+    }
 }

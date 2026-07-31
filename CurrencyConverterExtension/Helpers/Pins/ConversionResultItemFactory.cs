@@ -125,8 +125,7 @@ internal static class ConversionResultItemFactory
     {
         string fromCode = pin.FromCurrency.ToUpperInvariant();
         string toCode = pin.ToCurrency.ToUpperInvariant();
-        string amount = pin.Amount.ToString("N", CultureInfo.CurrentCulture);
-        string title = $"{amount} {fromCode} → {toCode}";
+        string title = pin.ToDisplayLabel();
 
         UnpinConversionCommand unpinCommand = new(pinManager, pin);
         unpinCommand.ItemsChanged += onPinsChanged;

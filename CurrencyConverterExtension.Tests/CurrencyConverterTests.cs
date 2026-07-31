@@ -386,10 +386,12 @@ public class CurrencyConverterTests
         using var converter = CreateConverter(handler: handler);
 
         DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        DateTime yesterdayUtc = DateTime.UtcNow.Date.AddDays(-1).AddHours(12);
+        // Seed relative to local calendar days so the test is stable across timezones / midnight.
+        DateTime yesterdayLocalNoon = today.AddDays(-1).ToDateTime(new TimeOnly(12, 0)).ToUniversalTime();
+        DateTime todayLocalNoon = today.ToDateTime(new TimeOnly(12, 0)).ToUniversalTime();
 
-        converter.SeedCacheEntry("usd", "inr", 80m, yesterdayUtc);
-        converter.SeedCacheEntry("usd", "eur", 0.9m, DateTime.UtcNow);
+        converter.SeedCacheEntry("usd", "inr", 80m, yesterdayLocalNoon);
+        converter.SeedCacheEntry("usd", "eur", 0.9m, todayLocalNoon);
 
         converter.InvalidateCacheFromPreviousDays(today);
 

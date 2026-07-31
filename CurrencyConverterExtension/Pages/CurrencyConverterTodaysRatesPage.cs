@@ -21,11 +21,13 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
     internal readonly AliasManager _aliasManager;
     internal readonly PinnedConversionManager _pinManager;
 
+    private readonly ConversionSearchController _search;
     private IListItem[] _items = [];
-    private CancellationTokenSource? _debounceCts;
-    private CancellationTokenSource? _conversionCts;
     private CancellationTokenSource? _defaultCts;
     private int _defaultLoadInFlight;
+    private int _defaultLoadVersion;
+    private int _suppressSearchUpdate;
+    private int _defaultViewLoaded;
 
     /// <summary>Raised after the default rates view finishes loading (pins + quick rates).</summary>
     public event Action? RatesRefreshed;
@@ -53,8 +55,32 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         _pinManager = pinManager;
         _converter = converter;
 
+        _search = new ConversionSearchController(
+            settings,
+            aliasManager,
+            pinManager,
+            converter,
+            BuildSearchResultItemsAsync,
+            items => _items = items,
+            loading => IsLoading = loading,
+            RaiseItemsChanged);
+
         // Keep default view in sync when pins change from the main converter (or elsewhere).
         _pinManager.PinsChanged += OnPinsChangedExternally;
+    }
+
+    private void SetSearchTextWithoutConverting(string query)
+    {
+        Interlocked.Exchange(ref _suppressSearchUpdate, 1);
+        try
+        {
+            SearchText = query;
+            OnPropertyChanged(nameof(SearchText));
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _suppressSearchUpdate, 0);
+        }
     }
 
     private void OnPinsChangedExternally()
@@ -69,7 +95,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
     {
         if (SearchText.Length == 0)
         {
-            if (_items.Length == 0 && Volatile.Read(ref _defaultLoadInFlight) == 0)
+            if (_defaultViewLoaded == 0 && _defaultLoadInFlight == 0)
             {
                 _ = LoadDefaultViewAsync();
             }
@@ -82,6 +108,11 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
     {
+        if (_suppressSearchUpdate != 0)
+        {
+            return;
+        }
+
         if (oldSearch == newSearch)
         {
             return;
@@ -93,19 +124,11 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             return;
         }
 
-        _ = DebounceAndConvertAsync(newSearch);
+        IsLoading = true;
+        _ = DebounceAndConvertFromSearchAsync(newSearch);
     }
 
-    private void CancelSearchWork()
-    {
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, null);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
-        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, null);
-        previousConversion?.Cancel();
-        previousConversion?.Dispose();
-    }
+    private void CancelSearchWork() => _search.CancelPendingWork();
 
     private async Task LoadDefaultViewAsync()
     {
@@ -116,8 +139,10 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         previous?.Cancel();
         previous?.Dispose();
         CancellationToken ct = defaultCts.Token;
+        int version = Interlocked.Increment(ref _defaultLoadVersion);
 
         Interlocked.Exchange(ref _defaultLoadInFlight, 1);
+        Interlocked.Exchange(ref _defaultViewLoaded, 0);
         _items = [CreateLoadingItem()];
         IsLoading = true;
         RaiseItemsChanged(0);
@@ -160,14 +185,12 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             else
             {
                 ct.ThrowIfCancellationRequested();
-                List<ConversionOutcome>[] outcomesByPin =
-                    await PinnedConversionFetchHelper.FetchGroupedByFromCurrencyAsync(
-                        pins,
-                        pin => _converter.GetConversionOutcomesAsync(
-                            pin.Amount,
-                            pin.FromCurrency,
-                            pin.ToCurrency,
-                            ct)).ConfigureAwait(false);
+                List<ConversionOutcome>[] outcomesByPin = await Task.WhenAll(
+                    pins.Select(pin => _converter.GetConversionOutcomesAsync(
+                        pin.Amount,
+                        pin.FromCurrency,
+                        pin.ToCurrency,
+                        ct))).ConfigureAwait(false);
 
                 ct.ThrowIfCancellationRequested();
                 for (int i = 0; i < pins.Count; i++)
@@ -212,20 +235,19 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             }
             else
             {
-                foreach (string currency in otherCurrencies)
-                {
-                    if (string.Equals(currency, local, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
+                string[] convertible = [.. otherCurrencies
+                    .Where(c => !string.Equals(c, local, StringComparison.OrdinalIgnoreCase))];
 
-                    ct.ThrowIfCancellationRequested();
-                    List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
+                ct.ThrowIfCancellationRequested();
+                List<ConversionOutcome>[] outcomesByCurrency = await Task.WhenAll(
+                    convertible.Select(currency => _converter.GetConversionOutcomesAsync(
                         1m,
                         local,
                         currency,
-                        ct).ConfigureAwait(false);
+                        ct))).ConfigureAwait(false);
 
+                foreach (List<ConversionOutcome> outcomes in outcomesByCurrency)
+                {
                     foreach (ConversionOutcome outcome in outcomes)
                     {
                         items.Add(outcome.Item);
@@ -257,12 +279,21 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
         }
         finally
         {
-            if (!ct.IsCancellationRequested)
+            // Always clear loading for the newest load so a cancel chain cannot leave a stuck spinner.
+            if (version == _defaultLoadVersion)
             {
                 Interlocked.Exchange(ref _defaultLoadInFlight, 0);
-                IsLoading = false;
-                RaiseItemsChanged(0);
-                RatesRefreshed?.Invoke();
+                if (!ct.IsCancellationRequested)
+                {
+                    Interlocked.Exchange(ref _defaultViewLoaded, 1);
+                    IsLoading = false;
+                    RaiseItemsChanged(0);
+                    RatesRefreshed?.Invoke();
+                }
+                else
+                {
+                    IsLoading = false;
+                }
             }
         }
     }
@@ -275,107 +306,14 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             Icon = Icon,
         };
 
-    private async Task DebounceAndConvertAsync(string search)
+    private async Task DebounceAndConvertFromSearchAsync(string search)
     {
         CancellationTokenSource? previousDefault = Interlocked.Exchange(ref _defaultCts, null);
         previousDefault?.Cancel();
         previousDefault?.Dispose();
         Interlocked.Exchange(ref _defaultLoadInFlight, 0);
 
-        CancellationTokenSource debounceCts = new();
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, debounceCts);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
-        try
-        {
-            await Task.Delay(300, debounceCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        if (string.IsNullOrEmpty(search))
-        {
-            await LoadDefaultViewAsync().ConfigureAwait(false);
-            return;
-        }
-
-        CancellationTokenSource conversionCts = new();
-        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, conversionCts);
-        previousConversion?.Cancel();
-        previousConversion?.Dispose();
-        CancellationToken ct = conversionCts.Token;
-
-        IsLoading = true;
-        RaiseItemsChanged(search.Length);
-
-        try
-        {
-            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
-            await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
-            ct.ThrowIfCancellationRequested();
-
-            try
-            {
-                _converter.ValidateConversionAPI();
-            }
-            catch (Exception ex)
-            {
-                _items =
-                [
-                    new ListItem(new OpenUrlCommand(CurrencyConverterExtensionPage.GithubReadmeURL))
-                    {
-                        Title = ex.Message,
-                        Subtitle = "Press enter or click to see how to fix this issue",
-                        Icon = IconManager.WarningIcon,
-                    }
-                ];
-                return;
-            }
-
-            var parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
-            _items = parseResult.Status switch
-            {
-                QueryParseStatus.NoMatch => [],
-                QueryParseStatus.InvalidExpression =>
-                [
-                    new ListItem(new NoOpCommand())
-                    {
-                        Title = "Invalid expression provided",
-                        Subtitle = "Please check your mathematical expression",
-                        Icon = IconManager.WarningIcon,
-                    }
-                ],
-                QueryParseStatus.Success => await BuildSearchResultItemsAsync(parseResult.Query!.Value, ct).ConfigureAwait(false),
-                _ => [],
-            };
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (Exception)
-        {
-            _items =
-            [
-                new ListItem(new NoOpCommand())
-                {
-                    Title = "Something went wrong while converting currencies",
-                    Subtitle = "Please try again",
-                    Icon = IconManager.WarningIcon,
-                }
-            ];
-        }
-        finally
-        {
-            if (!ct.IsCancellationRequested)
-            {
-                IsLoading = false;
-                RaiseItemsChanged(search.Length);
-            }
-        }
+        await _search.DebounceAndConvertAsync(search).ConfigureAwait(false);
     }
 
     private async Task<IListItem[]> BuildSearchResultItemsAsync(ParsedQuery query, CancellationToken cancellationToken)
@@ -410,18 +348,14 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             return;
         }
 
-        SearchText = string.Empty;
-        OnPropertyChanged(nameof(SearchText));
+        SetSearchTextWithoutConverting(string.Empty);
         _ = LoadDefaultViewAsync();
     }
 
     public void Dispose()
     {
         _pinManager.PinsChanged -= OnPinsChangedExternally;
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        _conversionCts?.Cancel();
-        _conversionCts?.Dispose();
+        _search.Dispose();
         _defaultCts?.Cancel();
         _defaultCts?.Dispose();
     }

@@ -62,6 +62,27 @@ public class QueryParserTests
     }
 
     [Fact]
+    public void Parse_LongDigitRunWithJunk_ReturnsNoMatchQuickly()
+    {
+        // Formerly catastrophic backtracking: ~9s at 24 digits under the old nested-quantifier pattern.
+        string search = new string('1', 40) + "!";
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);
+        sw.Stop();
+
+        Assert.Equal(QueryParseStatus.NoMatch, result.Status);
+        Assert.True(sw.ElapsedMilliseconds < 500, $"Parse took {sw.ElapsedMilliseconds}ms");
+    }
+
+    [Fact]
+    public void Parse_OverMaxLength_ReturnsNoMatch()
+    {
+        string search = new string('1', 200) + " usd to inr";
+        QueryParseResult result = QueryParser.Parse(search, decimalSeparatorMode: 1);
+        Assert.Equal(QueryParseStatus.NoMatch, result.Status);
+    }
+
+    [Fact]
     public void Parse_DotDecimalMode_ParsesFractionalAmount()
     {
         QueryParseResult result = QueryParser.Parse("10.5 usd to inr", decimalSeparatorMode: 1);

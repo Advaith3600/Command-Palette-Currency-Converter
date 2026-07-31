@@ -6,22 +6,25 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CurrencyConverterExtension.Helpers;
 
 internal sealed class DockPinItemFactory
 {
+    private static readonly IconInfo UpdatedIcon = new("\uE823"); // Recent (clock)
+
     private readonly CurrencyConverter _converter;
     private readonly PinnedConversionManager _pinManager;
     private readonly IconInfo _icon;
-    private readonly Func<PinnedConversion, Task> _refreshGroupAsync;
+    private readonly Func<PinnedConversion, Task<bool>> _refreshGroupAsync;
 
     internal DockPinItemFactory(
         CurrencyConverter converter,
         PinnedConversionManager pinManager,
         IconInfo icon,
-        Func<PinnedConversion, Task> refreshGroupAsync)
+        Func<PinnedConversion, Task<bool>> refreshGroupAsync)
     {
         _converter = converter;
         _pinManager = pinManager;
@@ -37,12 +40,9 @@ internal sealed class DockPinItemFactory
             Icon = _icon,
         };
 
-    internal async Task<IListItem> CreatePinnedDockItemAsync(PinnedConversion pin)
+    internal async Task<IListItem> CreatePinnedDockItemAsync(PinnedConversion pin, CancellationToken cancellationToken = default)
     {
-        string from = pin.FromCurrency.ToUpperInvariant();
-        string to = pin.ToCurrency.ToUpperInvariant();
-        string amount = pin.Amount.ToString("N", CultureInfo.CurrentCulture);
-        string pairLabel = $"{amount} {from} → {to}";
+        string pairLabel = pin.ToDisplayLabel();
         string commandId = CreateDockPinCommandId(pin);
 
         try
@@ -50,7 +50,8 @@ internal sealed class DockPinItemFactory
             List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
                 pin.Amount,
                 pin.FromCurrency,
-                pin.ToCurrency).ConfigureAwait(false);
+                pin.ToCurrency,
+                cancellationToken).ConfigureAwait(false);
 
             ConversionOutcome? success = outcomes.FirstOrDefault(o => o.IsSuccess);
             if (success is null)
@@ -61,22 +62,15 @@ internal sealed class DockPinItemFactory
             CopyTextCommand copyCommand = CurrencyConverter.CreateCopyCommand(success.ToFormatted);
             copyCommand.Id = commandId;
 
-            RefreshPinnedDockCommand refreshCommand = new(pin, _refreshGroupAsync);
-            UnpinConversionCommand unpinCommand = new(_pinManager, pin);
-
             string updatedAt = CurrencyConverter.FormatRateUpdatedAt(success.RateUpdatedAt);
-            List<IContextItem> moreCommands =
-            [
-                new CommandContextItem(refreshCommand),
-                new CommandContextItem(unpinCommand),
-            ];
+            List<IContextItem> moreCommands = BuildDockContextItems(pin);
             if (updatedAt != "—")
             {
                 // Dock has no details pane; surface last-updated time in the context menu.
                 moreCommands.Add(new CommandContextItem(new NoOpCommand
                 {
                     Name = $"Updated {updatedAt}",
-                    Icon = new IconInfo("\uE823"), // Recent (clock)
+                    Icon = UpdatedIcon,
                 }));
             }
 
@@ -88,29 +82,30 @@ internal sealed class DockPinItemFactory
                 MoreCommands = [.. moreCommands],
             };
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return CreateDockPlaceholderItem(pairLabel, commandId, pin);
         }
     }
 
-    private ListItem CreateDockPlaceholderItem(string pairLabel, string commandId, PinnedConversion pin)
-    {
-        RefreshPinnedDockCommand refreshCommand = new(pin, _refreshGroupAsync);
-        UnpinConversionCommand unpinCommand = new(_pinManager, pin);
-
-        return new ListItem(new NoOpCommand { Id = commandId })
+    private ListItem CreateDockPlaceholderItem(string pairLabel, string commandId, PinnedConversion pin) =>
+        new(new NoOpCommand { Id = commandId })
         {
             Title = pairLabel,
             Subtitle = string.Empty,
             Icon = _icon,
-            MoreCommands =
-            [
-                new CommandContextItem(refreshCommand),
-                new CommandContextItem(unpinCommand),
-            ],
+            MoreCommands = [.. BuildDockContextItems(pin)],
         };
-    }
+
+    private List<IContextItem> BuildDockContextItems(PinnedConversion pin) =>
+    [
+        new CommandContextItem(new RefreshPinnedDockCommand(pin, _refreshGroupAsync)),
+        new CommandContextItem(new UnpinConversionCommand(_pinManager, pin)),
+    ];
 
     private static string CreateDockPinCommandId(PinnedConversion pin) =>
         $"CurrencyConverter.Dock.Pin.{pin.Amount.ToString(CultureInfo.InvariantCulture)}.{pin.FromCurrency}.{pin.ToCurrency}";

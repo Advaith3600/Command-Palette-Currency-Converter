@@ -25,10 +25,10 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
     private readonly IListItem _todaysRatesItem;
     private readonly IListItem _aliasItem;
+    private readonly ConversionSearchController _search;
     private IListItem[] _items = [];
-    private CancellationTokenSource? _debounceCts;
-    private CancellationTokenSource? _conversionCts;
     private string? _lastRequestedSearch;
+    private int _suppressSearchUpdate;
 
     public CurrencyConverterExtensionPage(
         SettingsManager settings,
@@ -68,6 +68,34 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             Subtitle = aliasCommand.Subtitle,
             Icon = aliasCommand.Icon ?? Icon,
         };
+
+        _search = new ConversionSearchController(
+            settings,
+            aliasManager,
+            pinManager,
+            converter,
+            BuildConversionItemsAsync,
+            items => _items = items,
+            loading => IsLoading = loading,
+            RaiseItemsChanged);
+    }
+
+    /// <summary>
+    /// Sets <see cref="DynamicListPage.SearchText"/> without invoking <see cref="UpdateSearchText"/>
+    /// (the SDK setter always calls UpdateSearchText).
+    /// </summary>
+    private void SetSearchTextWithoutConverting(string query)
+    {
+        Interlocked.Exchange(ref _suppressSearchUpdate, 1);
+        try
+        {
+            SearchText = query;
+            OnPropertyChanged(nameof(SearchText));
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _suppressSearchUpdate, 0);
+        }
     }
 
     /// <summary>
@@ -80,9 +108,8 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             return;
         }
 
-        CancelPendingWork();
-        SearchText = query;
-        OnPropertyChanged(nameof(SearchText));
+        _search.CancelPendingWork();
+        SetSearchTextWithoutConverting(query);
         // Leave _lastRequestedSearch null so GetItems starts conversion when the page is shown.
         _lastRequestedSearch = null;
         _items = [];
@@ -96,23 +123,11 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
             return;
         }
 
-        CancelPendingWork();
-        SearchText = string.Empty;
-        OnPropertyChanged(nameof(SearchText));
+        _search.CancelPendingWork();
+        SetSearchTextWithoutConverting(string.Empty);
         _lastRequestedSearch = null;
         _items = [];
         IsLoading = false;
-    }
-
-    private void CancelPendingWork()
-    {
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, null);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
-        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, null);
-        previousConversion?.Cancel();
-        previousConversion?.Dispose();
     }
 
     public override IListItem[] GetItems()
@@ -125,7 +140,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         if (_lastRequestedSearch != SearchText)
         {
             _lastRequestedSearch = SearchText;
-            _ = DebounceAndConvertAsync(SearchText);
+            _ = _search.DebounceAndConvertAsync(SearchText);
         }
 
         return _items;
@@ -135,10 +150,9 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
     {
         return new AnonymousCommand(() =>
          {
-             SearchText = text;
-             OnPropertyChanged(nameof(SearchText));
+             SetSearchTextWithoutConverting(text);
              _lastRequestedSearch = text;
-             _ = DebounceAndConvertAsync(text);
+             _ = _search.DebounceAndConvertAsync(text);
          })
         {
             Name = "Use",
@@ -211,27 +225,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         ];
     }
 
-    private async Task<List<IListItem>> ParseQueryAsync(string search, CancellationToken cancellationToken)
-    {
-        var parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
-
-        return parseResult.Status switch
-        {
-            QueryParseStatus.NoMatch => [],
-            QueryParseStatus.InvalidExpression => [
-                new ListItem(new NoOpCommand())
-                {
-                    Title = "Invalid expression provided",
-                    Subtitle = "Please check your mathematical expression",
-                    Icon = IconManager.WarningIcon,
-                }
-            ],
-            QueryParseStatus.Success => await BuildConversionItemsAsync(parseResult.Query!.Value, cancellationToken).ConfigureAwait(false),
-            _ => [],
-        };
-    }
-
-    private async Task<List<IListItem>> BuildConversionItemsAsync(ParsedQuery query, CancellationToken cancellationToken)
+    private async Task<IListItem[]> BuildConversionItemsAsync(ParsedQuery query, CancellationToken cancellationToken)
     {
         List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
             query.Amount,
@@ -253,111 +247,23 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
         }
 
         // Skip debounce so the pinned/unpinned state updates immediately.
-        _ = ConvertNowAsync(SearchText);
+        _ = _search.ConvertNowAsync(SearchText);
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
     {
+        if (_suppressSearchUpdate != 0)
+        {
+            return;
+        }
+
         if (oldSearch != newSearch)
         {
+            IsLoading = !string.IsNullOrEmpty(newSearch);
             _lastRequestedSearch = newSearch;
-            _ = DebounceAndConvertAsync(newSearch);
+            _ = _search.DebounceAndConvertAsync(newSearch);
         }
     }
 
-    private async Task DebounceAndConvertAsync(string search)
-    {
-        CancellationTokenSource debounceCts = new();
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, debounceCts);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
-        try
-        {
-            await Task.Delay(300, debounceCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        await ConvertNowAsync(search).ConfigureAwait(false);
-    }
-
-    private async Task ConvertNowAsync(string search)
-    {
-        if (string.IsNullOrEmpty(search))
-        {
-            IsLoading = false;
-            _items = [];
-            RaiseItemsChanged(0);
-            return;
-        }
-
-        CancellationTokenSource conversionCts = new();
-        CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, conversionCts);
-        previousConversion?.Cancel();
-        previousConversion?.Dispose();
-        CancellationToken ct = conversionCts.Token;
-
-        IsLoading = true;
-        RaiseItemsChanged(search.Length);
-
-        try
-        {
-            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
-            await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
-            ct.ThrowIfCancellationRequested();
-
-            try
-            {
-                _converter.ValidateConversionAPI();
-            }
-            catch (Exception ex)
-            {
-                _items =
-                [
-                    new ListItem(new OpenUrlCommand(GithubReadmeURL))
-                    {
-                        Title = ex.Message,
-                        Subtitle = "Press enter or click to see how to fix this issue",
-                        Icon = IconManager.WarningIcon,
-                    }
-                ];
-                return;
-            }
-
-            var results = await ParseQueryAsync(search, ct).ConfigureAwait(false);
-            _items = [.. results];
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (Exception)
-        {
-            _items =
-            [
-                new ListItem(new NoOpCommand())
-                {
-                    Title = "Something went wrong while converting currencies",
-                    Subtitle = "Please try again",
-                    Icon = IconManager.WarningIcon,
-                }
-            ];
-        }
-        finally
-        {
-            if (!ct.IsCancellationRequested)
-            {
-                IsLoading = false;
-                RaiseItemsChanged(search.Length);
-            }
-        }
-    }
-
-    public void Dispose()
-    {
-        CancelPendingWork();
-    }
+    public void Dispose() => _search.Dispose();
 }

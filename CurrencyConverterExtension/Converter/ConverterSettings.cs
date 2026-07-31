@@ -49,7 +49,18 @@ public class ConverterSettings
         .Replace("{date}", ConversionDate)
         .Replace("{from}", _settings.ConversionAPI == (int)ConverterSettingsApi.CurrencyAPI ? from.ToUpperInvariant() : from)
         .Replace("{to}", to);
-    private Dictionary<string, string> GetOption() => _options[((ConverterSettingsApi)_settings.ConversionAPI).ToString()];
+    private Dictionary<string, string> GetOption()
+    {
+        if (!Enum.IsDefined(typeof(ConverterSettingsApi), _settings.ConversionAPI))
+        {
+            return _options[nameof(ConverterSettingsApi.Default)];
+        }
+
+        string key = ((ConverterSettingsApi)_settings.ConversionAPI).ToString();
+        return _options.TryGetValue(key, out Dictionary<string, string>? option)
+            ? option
+            : _options[nameof(ConverterSettingsApi.Default)];
+    }
 
     internal string GetConversionLink(string from, string to) => ParseLink(GetOption()["ConversionLink"], from, to);
     internal string GetConversionFallbackLink(string from, string to) => ParseLink(GetOption()["ConversionFallbackLink"], from, to);
@@ -63,6 +74,11 @@ public class ConverterSettings
 
     internal void ValidateConversionAPI()
     {
+        if (!Enum.IsDefined(typeof(ConverterSettingsApi), _settings.ConversionAPI))
+        {
+            throw new InvalidOperationException("Invalid Conversion API selected. Open settings and choose a valid API.");
+        }
+
         if (_settings.ConversionAPI != (int)ConverterSettingsApi.Default)
             EnsureConversionAPIKey();
     }

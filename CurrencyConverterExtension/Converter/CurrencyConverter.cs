@@ -45,6 +45,7 @@ internal sealed partial class CurrencyConverter : IDisposable
     internal AliasManager _aliasManager;
 
     private readonly ConcurrentDictionary<(string From, string To), (decimal Rate, DateTime Timestamp)> _conversionCache = new(new CaseInsensitiveTupleComparer());
+    private readonly ConcurrentDictionary<string, Task> _inFlightByBase = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient;
 
     internal CurrencyConverter(IConversionSettings settings, AliasManager aliasManager)
@@ -57,7 +58,10 @@ internal sealed partial class CurrencyConverter : IDisposable
         _settings = settings;
         _converterSettings = new(_settings);
         _aliasManager = aliasManager;
-        _httpClient = new HttpClient(httpMessageHandler);
+        _httpClient = new HttpClient(httpMessageHandler)
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+        };
     }
 
     public async Task<List<ConversionOutcome>> GetConversionOutcomesAsync(
@@ -359,16 +363,71 @@ internal sealed partial class CurrencyConverter : IDisposable
     {
         var cacheKey = (fromCurrency, toCurrency);
 
-        if (_conversionCache.TryGetValue(cacheKey, out var directCacheData) &&
-            directCacheData.Timestamp > DateTime.UtcNow.AddHours(-_settings.ConversionCacheDuration))
+        if (TryGetFreshCachedRate(cacheKey, out var cached))
         {
-            return (directCacheData.Rate, directCacheData.Timestamp);
+            return cached;
         }
 
-        string url = _converterSettings.GetConversionLink(fromCurrency, toCurrency);
-        using HttpResponseMessage response = await GetWithFallbackAsync(url, fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
+        // Coalesce concurrent misses for the same base currency into one HTTP fetch.
+        Task populateTask = _inFlightByBase.GetOrAdd(
+            fromCurrency,
+            static (baseCurrency, self) => self.PopulateCacheForBaseAsync(baseCurrency),
+            this);
 
-        string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await populateTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (populateTask.IsCompleted)
+            {
+                _inFlightByBase.TryRemove(new KeyValuePair<string, Task>(fromCurrency, populateTask));
+            }
+        }
+
+        if (TryGetFreshCachedRate(cacheKey, out cached))
+        {
+            return cached;
+        }
+
+        // Populate finished without this pair (invalid target) or faulted — surface the fault.
+        if (populateTask.IsFaulted)
+        {
+            await populateTask.ConfigureAwait(false);
+        }
+
+        throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
+    }
+
+    private bool TryGetFreshCachedRate(
+        (string From, string To) cacheKey,
+        out (decimal Rate, DateTime UpdatedAt) cached)
+    {
+        if (_conversionCache.TryGetValue(cacheKey, out var directCacheData))
+        {
+            if (directCacheData.Timestamp > DateTime.UtcNow.AddHours(-_settings.ConversionCacheDuration))
+            {
+                cached = (directCacheData.Rate, directCacheData.Timestamp);
+                return true;
+            }
+
+            // Lazy eviction so the dictionary does not retain stale entries forever.
+            _conversionCache.TryRemove(cacheKey, out _);
+        }
+
+        cached = default;
+        return false;
+    }
+
+    private async Task PopulateCacheForBaseAsync(string fromCurrency)
+    {
+        // Shared in-flight work is not tied to a single caller's token; waiters use WaitAsync.
+        string url = _converterSettings.GetConversionLink(fromCurrency, fromCurrency);
+        using HttpResponseMessage response = await GetWithFallbackAsync(url, fromCurrency, fromCurrency, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        string content = await response.Content.ReadAsStringAsync(CancellationToken.None).ConfigureAwait(false);
 
         DateTime fetchedAt = DateTime.UtcNow;
         JsonElement fromCurrencyElement = _converterSettings.GetRootJsonElementFor(content, fromCurrency);
@@ -377,12 +436,6 @@ internal sealed partial class CurrencyConverter : IDisposable
             (string targetCurrency, decimal rate) = _converterSettings.GetRateFor(property);
             _conversionCache[(fromCurrency, targetCurrency)] = (rate, fetchedAt);
         }
-        if (!_conversionCache.TryGetValue((fromCurrency, toCurrency), out var cacheOutput))
-        {
-            throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
-        }
-
-        return (cacheOutput.Rate, cacheOutput.Timestamp);
     }
 
     private async Task<HttpResponseMessage> GetWithFallbackAsync(
@@ -398,15 +451,28 @@ internal sealed partial class CurrencyConverter : IDisposable
             return response;
         }
 
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        System.Net.HttpStatusCode statusCode = response.StatusCode;
+        response.Dispose();
+
+        if (statusCode == System.Net.HttpStatusCode.NotFound)
         {
-            response.Dispose();
             throw new InvalidOperationException($"{fromCurrency.ToUpperInvariant()} is not a valid currency");
         }
 
-        response.Dispose();
+        // Do not retry auth/throttle failures, or when the fallback URL is identical (doubles metered use).
+        if (statusCode is System.Net.HttpStatusCode.Unauthorized
+            or System.Net.HttpStatusCode.Forbidden
+            or System.Net.HttpStatusCode.TooManyRequests)
+        {
+            throw new InvalidOperationException("Something went wrong while fetching the conversion rate");
+        }
 
         string fallbackUrl = _converterSettings.GetConversionFallbackLink(fromCurrency, toCurrency);
+        if (string.Equals(url, fallbackUrl, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Something went wrong while fetching the conversion rate");
+        }
+
         HttpResponseMessage fallbackResponse = await _httpClient.GetAsync(fallbackUrl, cancellationToken).ConfigureAwait(false);
 
         if (fallbackResponse.IsSuccessStatusCode)
@@ -414,7 +480,7 @@ internal sealed partial class CurrencyConverter : IDisposable
             return fallbackResponse;
         }
 
-        var statusCode = fallbackResponse.StatusCode;
+        statusCode = fallbackResponse.StatusCode;
         fallbackResponse.Dispose();
 
         throw statusCode == System.Net.HttpStatusCode.NotFound

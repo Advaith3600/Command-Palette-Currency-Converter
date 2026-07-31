@@ -18,7 +18,7 @@ internal class PinnedConversionManager
     private readonly SemaphoreSlim _saveLock = new(1, 1);
 #pragma warning restore CA1001
     private List<PinnedConversion> _pins = [];
-    private bool _initialized;
+    private volatile bool _initialized;
     private Task? _initTask;
 
     public bool IsInitialized => _initialized;
@@ -149,10 +149,10 @@ internal class PinnedConversionManager
     public async Task AddPinAsync(PinnedConversion pin)
     {
         await _saveLock.WaitAsync().ConfigureAwait(false);
+        bool changed;
         try
         {
             PinnedConversion normalized = Normalize(pin);
-            bool changed;
             lock (_gate)
             {
                 if (_pins.Contains(normalized))
@@ -169,22 +169,27 @@ internal class PinnedConversionManager
             if (changed)
             {
                 await SavePinsAsync().ConfigureAwait(false);
-                PinsChanged?.Invoke();
             }
         }
         finally
         {
             _saveLock.Release();
         }
+
+        // Raise outside the lock so handlers cannot deadlock on _saveLock.
+        if (changed)
+        {
+            PinsChanged?.Invoke();
+        }
     }
 
     public async Task RemovePinAsync(PinnedConversion pin)
     {
         await _saveLock.WaitAsync().ConfigureAwait(false);
+        bool removed;
         try
         {
             PinnedConversion normalized = Normalize(pin);
-            bool removed;
             lock (_gate)
             {
                 removed = _pins.Remove(normalized);
@@ -193,12 +198,16 @@ internal class PinnedConversionManager
             if (removed)
             {
                 await SavePinsAsync().ConfigureAwait(false);
-                PinsChanged?.Invoke();
             }
         }
         finally
         {
             _saveLock.Release();
+        }
+
+        if (removed)
+        {
+            PinsChanged?.Invoke();
         }
     }
 

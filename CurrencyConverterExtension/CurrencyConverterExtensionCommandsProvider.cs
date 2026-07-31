@@ -7,6 +7,7 @@ using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
 
 namespace CurrencyConverterExtension;
 
@@ -22,6 +23,10 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
     private readonly PinnedConversionManager _pinManager = new();
     private readonly CurrencyConverter _converter;
     private readonly PinnedDockBandManager _dockBandManager;
+    private readonly CurrencyConverterTodaysRatesPage _todaysRatesPage;
+    private readonly CurrencyConverterExtensionPage _mainPage;
+    private readonly CurrencyConverterExtensionPage _fallbackPage;
+    private bool _disposed;
 
     public CurrencyConverterExtensionCommandsProvider()
     {
@@ -35,13 +40,13 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         // One shared converter so main, fallback, today's rates, and dock share the rate cache.
         _converter = new CurrencyConverter(_settingsManager, _aliasManager);
 
-        CurrencyConverterTodaysRatesPage todaysRatesPage = new(
+        _todaysRatesPage = new(
             _settingsManager,
             _aliasManager,
             _pinManager,
             _converter);
 
-        _todaysRatesCommand = new CommandItem(todaysRatesPage)
+        _todaysRatesCommand = new CommandItem(_todaysRatesPage)
         {
             Title = "Today's rates",
             Subtitle = "1 local currency to your other currencies, plus pinned conversions",
@@ -55,7 +60,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             Icon = Icon,
         };
 
-        CurrencyConverterExtensionPage mainPage = new(
+        _mainPage = new(
             _settingsManager,
             _aliasManager,
             _pinManager,
@@ -63,7 +68,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             _todaysRatesCommand,
             _aliasCommand);
 
-        _mainCommand = new CommandItem(mainPage)
+        _mainCommand = new CommandItem(_mainPage)
         {
             Title = DisplayName,
             Icon = Icon,
@@ -74,7 +79,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         };
 
         // Separate page instance so home-page fallback typing does not mutate the top-level page.
-        CurrencyConverterExtensionPage fallbackPage = new(
+        _fallbackPage = new(
             _settingsManager,
             _aliasManager,
             _pinManager,
@@ -82,19 +87,24 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             _todaysRatesCommand,
             _aliasCommand,
             "CurrencyConverterExtensionPage.Fallback");
-        _fallbackItem = new CurrencyConverterFallbackItem(fallbackPage, _settingsManager);
+        _fallbackItem = new CurrencyConverterFallbackItem(_fallbackPage, _settingsManager);
 
-        // Pin/unpin and today's-rates reload both notify; RefreshAsync coalesces concurrent calls.
+        // PinsChanged alone drives dock refresh; RatesRefreshed would double-fetch after pin changes.
         _dockBandManager = new PinnedDockBandManager(
             _converter,
             _pinManager,
             _aliasManager,
             Icon,
             _todaysRatesCommand.Command!);
-        todaysRatesPage.RatesRefreshed += () => _ = _dockBandManager.RefreshAsync();
-        _pinManager.PinsChanged += () => _ = _dockBandManager.RefreshAsync();
+        _pinManager.PinsChanged += OnPinsChanged;
 
         _commands = [_mainCommand];
+    }
+
+    private void OnPinsChanged()
+    {
+        _dockBandManager.MarkDirty();
+        _ = _dockBandManager.RefreshAsync();
     }
 
     public override ICommandItem[] TopLevelCommands() => _commands;
@@ -126,5 +136,23 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         }
 
         return null;
+    }
+
+    public override void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _pinManager.PinsChanged -= OnPinsChanged;
+        _dockBandManager.Dispose();
+        _todaysRatesPage.Dispose();
+        _mainPage.Dispose();
+        _fallbackPage.Dispose();
+        _converter.Dispose();
+        base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

@@ -1,4 +1,5 @@
 using CurrencyConverterExtension.Helpers;
+using System;
 
 namespace CurrencyConverterExtension.Tests;
 
