@@ -117,12 +117,12 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
     {
         if (_todaysRatesCommand.Command?.Id == id)
         {
-            return _todaysRatesCommand;
+            return CreatePinnedPageDockItem(_todaysRatesCommand);
         }
 
         if (_aliasCommand.Command?.Id == id)
         {
-            return _aliasCommand;
+            return CreatePinnedPageDockItem(_aliasCommand);
         }
 
         if (_mainCommand.Command?.Id == id)
@@ -136,6 +136,34 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Wrap a nested list page as a single-button dock band so Pin to Dock opens
+    /// the page instead of expanding <see cref="IListPage.GetItems"/> as buttons.
+    /// Dock renders each <see cref="ListItem"/>'s Title/Subtitle, so set them on
+    /// the item (<see cref="WrappedDockItem.Subtitle"/> alone only covers Pin to Home).
+    /// </summary>
+    private WrappedDockItem CreatePinnedPageDockItem(CommandItem source)
+    {
+        ICommand command = source.Command!;
+        string title = source.Title ?? command.Name;
+
+        return new WrappedDockItem(
+            [
+                new ListItem(command)
+                {
+                    Title = title,
+                    Subtitle = source.Subtitle,
+                    Icon = source.Icon ?? Icon,
+                },
+            ],
+            command.Id,
+            title)
+        {
+            Subtitle = source.Subtitle,
+            Icon = source.Icon ?? Icon,
+        };
     }
 
     public override void Dispose()
