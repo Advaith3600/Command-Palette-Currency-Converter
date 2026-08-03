@@ -9,11 +9,7 @@ Convert fiat and crypto currencies without leaving [Command Palette](https://lea
 
 ![Home](screenshots/home.png)
 
-*Capture: main page with an empty search box — Today's rates, Manage aliases, and example query chips visible.*
-
 ![Settings](screenshots/settings.png)
-
-*Capture: full settings page (local currency, quick currencies, decimal separator, cache duration, API). Hide or clear any API key before shooting.*
 
 ## Why you'll love it
 
@@ -49,14 +45,12 @@ Download the MSIX package from the [Releases](https://github.com/advaith3600/Com
 
 ## Quick start
 
-1. Open Command Palette and run **Currency Converter** (or type a conversion query on the home list — see [Fallback](#fallback-from-home)).
+1. Open Command Palette and run **Currency Converter** (or type a conversion query on the home list).
 2. Type a query, for example `100 usd to eur`.
 3. Press **Enter** on a result to copy the converted amount to the clipboard.
 4. Open the details pane on a selected result to see the unit rate, inverse rate, and last update time.
 
 ![Conversion with details](screenshots/conversion.png)
-
-*Capture: a fiat conversion selected with the details pane expanded (rate, inverse rate, last updated).*
 
 ## Usage
 
@@ -88,8 +82,6 @@ Convert between fiat and cryptocurrencies in either direction. See the [full lis
 
 ![Crypto conversion](screenshots/conversion-crypto.png)
 
-*Capture: e.g. `1 btc to usd` with the details pane visible.*
-
 ### Quick conversions
 
 Type just a number to convert from your local currency into the other currencies configured in Settings. You can change both the local currency and the list of target currencies there.
@@ -101,8 +93,6 @@ $1209
 
 ![Quick conversion](screenshots/conversion-quick.png)
 
-*Capture: number-only quick conversion showing several target currencies.*
-
 ### Mathematical calculations
 
 Type a math expression and the extension evaluates it with BODMAS/PEMDAS before converting. Supported operators are `+`, `-`, `*`, and `/`, including brackets:
@@ -112,16 +102,6 @@ Type a math expression and the extension evaluates it with BODMAS/PEMDAS before 
 ```
 
 ![Math expression conversion](screenshots/conversion-math.png)
-
-*Capture: a math expression conversion result.*
-
-### Fallback from home
-
-You do not always need to open Currency Converter first. On the Command Palette home list, type a conversion query — when it matches, a **Convert with Currency Converter** fallback appears so you can jump straight into results.
-
-![Fallback](screenshots/fallback.png)
-
-*Capture: Command Palette home after typing a conversion query, with the Currency Converter fallback item visible.*
 
 ## Pins, Today's rates & dock
 
@@ -133,16 +113,14 @@ If your local currency matches every currency in the other-currencies list, a wa
 
 ![Today's rates](screenshots/todays-rates.png)
 
-*Capture: Today's rates with at least one row tagged Pinned.*
-
 ### Pinning conversions
 
 Keep the pairs you check often at the top of Today's rates and on the dock.
 
-| Where | Pin | Unpin | Enter |
-| --- | --- | --- | --- |
-| Main converter results | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
-| Today's rates (search for a pair) | **Enter** | Context menu (`Ctrl + Enter`) | Pins the conversion |
+| Where                             | Pin                           | Unpin                         | Enter                       |
+| --------------------------------- | ----------------------------- | ----------------------------- | --------------------------- |
+| Main converter results            | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
+| Today's rates (search for a pair) | **Enter**                     | Context menu (`Ctrl + Enter`) | Pins the conversion         |
 
 Example: on Today's rates, search `34 btc to aed` and press **Enter** to pin it. Pinned conversions appear at the top with live rates the next time you open the page.
 
@@ -155,8 +133,6 @@ Pinned conversions also show up in the Command Palette **Currency pins** dock ba
 - Dock rates refresh automatically on a new local calendar day, and whenever you change your pins
 
 ![Dock pins](screenshots/dock-pins.png)
-
-*Capture: Command Palette dock with the Currency pins band showing 2–3 pinned pairs and live amounts.*
 
 ## Aliases
 
@@ -171,24 +147,20 @@ Remove an alias by selecting it and pressing `Ctrl + Enter`, then confirming the
 
 ![Manage aliases](screenshots/aliases.png)
 
-*Capture: alias list page.*
-
 ![Create alias](screenshots/aliases-create.png)
-
-*Capture: create-alias form.*
 
 ## Settings
 
 Open Settings from the Currency Converter command (context menu → Settings), or from the warning on Today's rates when your currency list needs attention.
 
-| Setting | What it does |
-| --- | --- |
+| Setting                             | What it does                                                      |
+| ----------------------------------- | ----------------------------------------------------------------- |
 | **Quick Conversion Local Currency** | Base currency for number-only quick conversions and Today's rates |
-| **Quick Conversion Currencies** | Comma-separated targets (e.g. `USD, EUR, BTC`) |
-| **Decimal format separator** | System default, always dots, or always commas |
-| **Conversion Cache duration** | How long rates stay cached, in hours (min `0.5`, max `24`) |
-| **Conversion API** | Rate provider (see below) |
-| **Conversion API Key** | Required only for ExchangeRateAPI or CurrencyAPI |
+| **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)                    |
+| **Decimal format separator**        | System default, always dots, or always commas                     |
+| **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`)        |
+| **Conversion API**                  | Rate provider (see below)                                         |
+| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI                  |
 
 ## Conversion API
 
@@ -215,16 +187,4 @@ None of these APIs are affiliated with this extension. To use a different rate p
 
 ## Privacy
 
-This extension does not collect or transmit personal data. See the [Privacy Policy](PRIVACY_POLICY.md) for details.
-
-## Screenshot guide
-
-When replacing the placeholder images above, use these tips for a consistent set:
-
-1. Use **Win + Shift + S** or Snipping Tool; crop to the Command Palette window when possible.
-2. Capture at about **100–125%** display scale so text stays sharp on GitHub.
-3. Stick to one CmdPal theme (light or dark) across every shot.
-4. For **details** shots, select a result so the details pane is expanded before capturing.
-5. For the **dock** shot, pin 2–3 conversions first, then capture the Currency pins band with readable titles and subtitles.
-6. For **settings**, clear or obscure any API key.
-7. Prefer PNG; keep filenames exactly as referenced in this README (`screenshots/home.png`, `screenshots/dock-pins.png`, etc.).
+This extension has no analytics or telemetry. Settings, aliases, and pins stay on your device; exchange rates are fetched from the third-party API you select. See the [Privacy Policy](PRIVACY_POLICY.md) for details.
