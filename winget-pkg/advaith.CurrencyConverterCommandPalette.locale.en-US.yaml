@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: advaith.CurrencyConverterCommandPalette
-PackageVersion: 0.3.0
+PackageVersion: 0.4.0
 PackageLocale: en-US
 Publisher: Advaith A J
 PublisherUrl: https://github.com/Advaith3600
@@ -21,7 +21,7 @@ Tags:
 - powertoys
 - powertoys-command-palette
 - windows-commandpalette-extension
-ReleaseNotesUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/releases/tag/0.3.0
+ReleaseNotesUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/releases/tag/0.4.0
 Documentations:
 - DocumentLabel: Wiki
   DocumentUrl: https://github.com/Advaith3600/Command-Palette-Currency-Converter/wiki
