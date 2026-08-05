@@ -78,7 +78,7 @@ internal sealed class DockPinItemFactory
             {
                 Title = $"{success.ToFormatted} {success.ToCurrency.ToUpperInvariant()}",
                 Subtitle = pairLabel,
-                Icon = _icon,
+                Icon = CurrencyIconManager.For(pin.ToCurrency),
                 MoreCommands = [.. moreCommands],
             };
         }
@@ -97,7 +97,7 @@ internal sealed class DockPinItemFactory
         {
             Title = pairLabel,
             Subtitle = string.Empty,
-            Icon = _icon,
+            Icon = CurrencyIconManager.For(pin.ToCurrency),
             MoreCommands = [.. BuildDockContextItems(pin)],
         };
 

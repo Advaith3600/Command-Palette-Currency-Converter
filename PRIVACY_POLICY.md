@@ -2,7 +2,7 @@
 
 **Currency Converter for Command Palette** (“this extension”) respects your privacy. This policy describes what data is handled on your device and what is sent over the network when you use the extension.
 
-**Last updated: 2026-08-03**  
+**Last updated: 2026-08-05**  
 **Publisher:** Advaith A J
 
 ## Summary
@@ -34,6 +34,8 @@ To fetch exchange rates, the extension contacts the rate provider you select in 
 4. **CurrencyAPI** — [currencyapi.com](https://currencyapi.com/)
 
 These requests typically include currency codes (for example, a base currency) and, for non-default providers that require one, the API key you enter in Settings. Like any HTTPS request, the provider also receives standard connection metadata such as your IP address.
+
+Currency flag and crypto icons shown in the UI are **bundled with the extension** (WebP assets under `Assets/Flags` and `Assets/Crypto`). They are not fetched from the network at runtime. Flag artwork is based on publicly available country flags (sourced via [flagcdn.com](https://flagcdn.com/) / [flagpedia.net](https://flagpedia.net) when packaging the app). Most crypto icons are from the CC0 [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons) set; a few newer majors missing from that set (for example SHIB, NEAR, SUI) are packaged from [CoinCap](https://coincap.io/) icon assets at build time only.
 
 None of these providers are affiliated with this extension. Their own privacy policies apply to data they receive:
 
