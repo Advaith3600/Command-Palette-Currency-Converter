@@ -156,6 +156,9 @@
   <data name="exchange_rate_api" xml:space="preserve">
     <value>ExchangeRateAPI</value>
   </data>
+  <data name="frankfurter_api" xml:space="preserve">
+    <value>Frankfurter</value>
+  </data>
   <data name="local_currency" xml:space="preserve">
     <value>Quick Conversion Local Currency</value>
   </data>

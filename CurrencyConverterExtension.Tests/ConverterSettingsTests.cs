@@ -59,11 +59,47 @@ public class ConverterSettingsTests
     }
 
     [Fact]
+    public void GetConversionLink_Frankfurter_UsesV2LatestWithoutDate()
+    {
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Frankfurter };
+        var converterSettings = new ConverterSettings(settings) { ConversionDate = "latest" };
+
+        string link = converterSettings.GetConversionLink("usd", "inr");
+
+        Assert.Equal("https://api.frankfurter.dev/v2/rates?base=USD", link);
+    }
+
+    [Fact]
+    public void GetHelperLink_UsesProviderSpecificUrl()
+    {
+        var defaultSettings = new ConverterSettings(new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default });
+        Assert.Equal(
+            "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json",
+            defaultSettings.GetHelperLink());
+
+        var frankfurterSettings = new ConverterSettings(new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Frankfurter });
+        Assert.Equal("https://api.frankfurter.dev/v2/currencies", frankfurterSettings.GetHelperLink());
+    }
+
+    [Fact]
     public void ValidateConversionAPI_Default_DoesNotRequireKey()
     {
         var settings = new FakeConversionSettings
         {
             ConversionAPI = (int)ConverterSettingsApi.Default,
+            ConversionAPIKey = "",
+        };
+        var converterSettings = new ConverterSettings(settings);
+
+        converterSettings.ValidateConversionAPI();
+    }
+
+    [Fact]
+    public void ValidateConversionAPI_Frankfurter_DoesNotRequireKey()
+    {
+        var settings = new FakeConversionSettings
+        {
+            ConversionAPI = (int)ConverterSettingsApi.Frankfurter,
             ConversionAPIKey = "",
         };
         var converterSettings = new ConverterSettings(settings);
@@ -123,11 +159,45 @@ public class ConverterSettingsTests
     }
 
     [Fact]
+    public void GetRootJsonElementFor_Frankfurter_ConvertsRatesArrayToObject()
+    {
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Frankfurter };
+        var converterSettings = new ConverterSettings(settings);
+        const string json = """
+            [
+              {"date":"2024-01-15","base":"USD","quote":"INR","rate":83.1},
+              {"date":"2024-01-15","base":"USD","quote":"EUR","rate":0.92}
+            ]
+            """;
+
+        JsonElement root = converterSettings.GetRootJsonElementFor(json, "usd");
+
+        Assert.True(root.TryGetProperty("inr", out JsonElement inr));
+        Assert.Equal(83.1m, inr.GetDecimal());
+        Assert.True(root.TryGetProperty("eur", out JsonElement eur));
+        Assert.Equal(0.92m, eur.GetDecimal());
+    }
+
+    [Fact]
     public void GetRateFor_DefaultApi_ReturnsNameAndValue()
     {
         var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Default };
         var converterSettings = new ConverterSettings(settings);
         using var doc = JsonDocument.Parse("""{"inr":83.1}""");
+        JsonProperty property = doc.RootElement.EnumerateObject().First();
+
+        (string code, decimal rate) = converterSettings.GetRateFor(property);
+
+        Assert.Equal("inr", code);
+        Assert.Equal(83.1m, rate);
+    }
+
+    [Fact]
+    public void GetRateFor_Frankfurter_ReturnsLowercaseCode()
+    {
+        var settings = new FakeConversionSettings { ConversionAPI = (int)ConverterSettingsApi.Frankfurter };
+        var converterSettings = new ConverterSettings(settings);
+        using var doc = JsonDocument.Parse("""{"INR":83.1}""");
         JsonProperty property = doc.RootElement.EnumerateObject().First();
 
         (string code, decimal rate) = converterSettings.GetRateFor(property);
@@ -146,7 +216,7 @@ public class ConverterSettingsTests
 
         (string code, decimal rate) = converterSettings.GetRateFor(property);
 
-        Assert.Equal("INR", code);
+        Assert.Equal("inr", code);
         Assert.Equal(83.1m, rate);
     }
 

@@ -521,6 +521,8 @@ internal sealed partial class CurrencyConverter : IDisposable
 
     internal void ValidateConversionAPI() => _converterSettings.ValidateConversionAPI();
 
+    internal string GetHelperLink() => _converterSettings.GetHelperLink();
+
     public void Dispose()
     {
         GC.SuppressFinalize(this);

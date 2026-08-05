@@ -172,13 +172,19 @@ This extension uses third-party APIs for the latest conversion rates:
    - Supports fiat and cryptocurrency conversions.
    - **Important:** Keep the default API unless you have a strong reason to switch. It updates daily and needs no extra setup.
 
-2. **[ExchangeRateAPI](https://www.exchangerate-api.com/)**
+2. **[Frankfurter](https://frankfurter.dev/)**
+   - Free, open-source exchange rates from central banks — no API key required.
+   - No request quotas (abuse rate limits may still apply).
+   - Does **not** support cryptocurrency conversions.
+   - Uses the public Frankfurter [v2 rates API](https://frankfurter.dev/).
+
+3. **[ExchangeRateAPI](https://www.exchangerate-api.com/)**
    - Updated frequently throughout the day ([pricing](https://www.exchangerate-api.com/#pricing)).
    - Free tier: 1,500 requests per month.
    - Does **not** support cryptocurrency conversions.
    - Requires an API key in Settings.
 
-3. **[CurrencyAPI](https://currencyapi.com)**
+4. **[CurrencyAPI](https://currencyapi.com)**
    - Updated frequently throughout the day ([pricing](https://currencyapi.com/pricing/)).
    - See their documentation for update frequency, pricing, and supported features.
    - Requires an API key in Settings.

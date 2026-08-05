@@ -29,13 +29,15 @@ You can clear or change this data by editing settings, removing pins/aliases, or
 To fetch exchange rates, the extension contacts the rate provider you select in Settings:
 
 1. **Default** — [fawazahmed0/currency-api](https://github.com/fawazahmed0/exchange-api) via jsDelivr CDN and a Cloudflare Pages fallback  
-2. **ExchangeRate-API** — [exchangerate-api.com](https://www.exchangerate-api.com/)  
-3. **CurrencyAPI** — [currencyapi.com](https://currencyapi.com/)
+2. **Frankfurter** — [frankfurter.dev](https://frankfurter.dev/)  
+3. **ExchangeRate-API** — [exchangerate-api.com](https://www.exchangerate-api.com/)  
+4. **CurrencyAPI** — [currencyapi.com](https://currencyapi.com/)
 
-These requests typically include currency codes (for example, a base currency) and, for non-default providers, the API key you enter in Settings. Like any HTTPS request, the provider also receives standard connection metadata such as your IP address.
+These requests typically include currency codes (for example, a base currency) and, for non-default providers that require one, the API key you enter in Settings. Like any HTTPS request, the provider also receives standard connection metadata such as your IP address.
 
 None of these providers are affiliated with this extension. Their own privacy policies apply to data they receive:
 
+- [Frankfurter FAQ / privacy](https://frankfurter.dev/)  
 - [ExchangeRate-API privacy](https://www.exchangerate-api.com/terms)  
 - [CurrencyAPI privacy](https://currencyapi.com/privacy-policy/)  
 - Default API / CDN hosts: see the [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api) project and the jsDelivr / Cloudflare policies for their respective services

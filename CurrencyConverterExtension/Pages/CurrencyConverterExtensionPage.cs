@@ -210,10 +210,10 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
                     })
                 ]
             },
-            new ListItem(new OpenUrlCommand("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json"))
+            new ListItem(new OpenUrlCommand(_converter.GetHelperLink()))
             {
                 Title = "All available currencies",
-                Subtitle = "Opens the full currencies list (JSON)",
+                Subtitle = "Opens the currency list for the selected API",
                 Icon = IconManager.Icon,
             },
             new ListItem(_settings.Settings.SettingsPage)
