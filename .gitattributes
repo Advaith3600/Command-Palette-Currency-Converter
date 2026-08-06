@@ -36,6 +36,7 @@
 
 # Binary
 *.png  binary
+*.webp binary
 *.jpg  binary
 *.jpeg binary
 *.gif  binary

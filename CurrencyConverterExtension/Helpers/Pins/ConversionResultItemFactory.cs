@@ -61,7 +61,7 @@ internal static class ConversionResultItemFactory
             {
                 Title = outcome.Item.Title,
                 Subtitle = string.Empty,
-                Icon = IconManager.Icon,
+                Icon = CurrencyIconManager.For(toCode),
                 Details = CurrencyConverter.CreateConversionDetails(
                     outcome.Amount.ToString("N", CultureInfo.CurrentCulture),
                     fromCode,
@@ -93,7 +93,7 @@ internal static class ConversionResultItemFactory
             {
                 Title = outcome.Item.Title,
                 Subtitle = "Press Enter to pin this conversion",
-                Icon = IconManager.Icon,
+                Icon = CurrencyIconManager.For(toCode),
                 Details = outcome.Item.Details,
                 Tags = outcome.Item.Tags,
                 MoreCommands =
@@ -107,7 +107,7 @@ internal static class ConversionResultItemFactory
         {
             Title = outcome.Item.Title,
             Subtitle = string.Empty,
-            Icon = IconManager.Icon,
+            Icon = CurrencyIconManager.For(toCode),
             Details = outcome.Item.Details,
             Tags = outcome.Item.Tags,
             MoreCommands =

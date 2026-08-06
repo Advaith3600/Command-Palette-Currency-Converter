@@ -54,6 +54,7 @@ namespace CurrencyConverterExtension.Helpers
             new()
             {
                 new(Resources.default_api, ((int)ConverterSettingsApi.Default).ToString(CultureInfo.InvariantCulture)),
+                new(Resources.frankfurter_api, ((int)ConverterSettingsApi.Frankfurter).ToString(CultureInfo.InvariantCulture)),
                 new(Resources.exchange_rate_api, ((int)ConverterSettingsApi.ExchangeRateAPI).ToString(CultureInfo.InvariantCulture)),
                 new(Resources.currency_api, ((int)ConverterSettingsApi.CurrencyAPI).ToString(CultureInfo.InvariantCulture)),
             })

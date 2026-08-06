@@ -178,6 +178,15 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Frankfurter.
+        /// </summary>
+        internal static string frankfurter_api {
+            get {
+                return ResourceManager.GetString("frankfurter_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Quick Conversion Local Currency.
         /// </summary>
         internal static string local_currency {

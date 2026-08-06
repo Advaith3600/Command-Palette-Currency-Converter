@@ -131,7 +131,7 @@ internal sealed partial class CurrencyConverterAliasPage : ListPage
                 return new ListItem(new NoOpCommand())
                 {
                     Title = $"{kvp.Key} ⇒ {kvp.Value}",
-                    Icon = IconManager.Icon,
+                    Icon = CurrencyIconManager.For(kvp.Value),
                     MoreCommands = [
                         new CommandContextItem(command)
                     ]

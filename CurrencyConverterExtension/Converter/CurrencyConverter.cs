@@ -146,7 +146,7 @@ internal sealed partial class CurrencyConverter : IDisposable
             {
                 Title = $"{fromFormatted} {fromCode} → {toFormatted} {toCode}",
                 Subtitle = string.Empty,
-                Icon = IconManager.Icon,
+                Icon = CurrencyIconManager.For(toCurrency),
                 Tags =
                 [
                     new Tag(fromCode),
@@ -242,15 +242,10 @@ internal sealed partial class CurrencyConverter : IDisposable
         return new Details
         {
             Title = $"{toFormatted} {toCode}",
-            HeroImage = IconManager.Icon,
+            HeroImage = CurrencyIconManager.For(toCode),
             Body = $"**{fromFormatted} {fromCode}** → **{toFormatted} {toCode}**",
             Metadata =
             [
-                new DetailsElement
-                {
-                    Key = "Tags",
-                    Data = new DetailsTags { Tags = tags },
-                },
                 new DetailsElement
                 {
                     Key = "Unit rate",
@@ -260,6 +255,11 @@ internal sealed partial class CurrencyConverter : IDisposable
                 {
                     Key = "Inverse rate",
                     Data = new DetailsLink { Text = $"1 {toCode} = {inverseRate} {fromCode}" },
+                },
+                new DetailsElement
+                {
+                    Key = "Tags",
+                    Data = new DetailsTags { Tags = tags },
                 },
                 new DetailsElement
                 {
@@ -520,6 +520,8 @@ internal sealed partial class CurrencyConverter : IDisposable
     }
 
     internal void ValidateConversionAPI() => _converterSettings.ValidateConversionAPI();
+
+    internal string GetHelperLink() => _converterSettings.GetHelperLink();
 
     public void Dispose()
     {
