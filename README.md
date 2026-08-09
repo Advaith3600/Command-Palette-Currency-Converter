@@ -103,26 +103,17 @@ Type a math expression and the extension evaluates it with BODMAS/PEMDAS before 
 
 ![Math expression conversion](screenshots/conversion-math.png)
 
-## Pins, Today's rates & dock
-
-### Today's rates
-
-Open **Today's rates** from the main page (when the search box is empty) to see live conversions of `1` unit of your local currency into each of your other currencies from Settings.
-
-If your local currency matches every currency in the other-currencies list, a warning is shown instead of the default rates — press **Enter** on it to open Settings and add a different currency.
-
-![Today's rates](screenshots/todays-rates.png)
+## Pins & dock
 
 ### Pinning conversions
 
-Keep the pairs you check often at the top of Today's rates and on the dock.
+Keep the pairs you check often at the top of the main converter (when the search box is empty) and on the dock. Pins show a brief **Loading…** state, then update to live rates (or **Loading failed** if the request fails).
 
-| Where                             | Pin                           | Unpin                         | Enter                       |
-| --------------------------------- | ----------------------------- | ----------------------------- | --------------------------- |
-| Main converter results            | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
-| Today's rates (search for a pair) | **Enter**                     | Context menu (`Ctrl + Enter`) | Pins the conversion         |
+| Where                  | Pin                           | Unpin                         | Enter                       |
+| ---------------------- | ----------------------------- | ----------------------------- | --------------------------- |
+| Main converter results | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
 
-Example: on Today's rates, search `34 btc to aed` and press **Enter** to pin it. Pinned conversions appear at the top with live rates the next time you open the page.
+Example: search `34 btc to aed`, open the context menu (`Ctrl + Enter`), and pin it. Pinned conversions appear at the top of the main page with live rates the next time you open Currency Converter.
 
 ### Currency pins on the dock
 
@@ -151,16 +142,16 @@ Remove an alias by selecting it and pressing `Ctrl + Enter`, then confirming the
 
 ## Settings
 
-Open Settings from the Currency Converter command (context menu → Settings), or from the warning on Today's rates when your currency list needs attention.
+Open Settings from the Currency Converter command (context menu → Settings).
 
-| Setting                             | What it does                                                      |
-| ----------------------------------- | ----------------------------------------------------------------- |
-| **Quick Conversion Local Currency** | Base currency for number-only quick conversions and Today's rates |
-| **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)                    |
-| **Decimal format separator**        | System default, always dots, or always commas                     |
-| **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`)        |
-| **Conversion API**                  | Rate provider (see below)                                         |
-| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI                  |
+| Setting                             | What it does                                               |
+| ----------------------------------- | ---------------------------------------------------------- |
+| **Quick Conversion Local Currency** | Base currency for number-only quick conversions            |
+| **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)             |
+| **Decimal format separator**        | System default, always dots, or always commas              |
+| **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`) |
+| **Conversion API**                  | Rate provider (see below)                                  |
+| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI           |
 
 ## Conversion API
 

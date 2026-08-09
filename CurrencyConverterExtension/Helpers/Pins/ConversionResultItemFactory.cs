@@ -1,26 +1,20 @@
 using CurrencyConverterExtension.Commands;
 using CurrencyConverterExtension.Converter;
-using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Globalization;
 
 namespace CurrencyConverterExtension.Helpers;
 
-internal enum ConversionPinAction
-{
-    /// <summary>Enter copies; pin/unpin is available from the context menu (Ctrl+Enter).</summary>
-    Secondary,
-
-    /// <summary>Enter pins when unpinned; copy is available from the context menu.</summary>
-    Primary,
-}
-
 internal static class ConversionResultItemFactory
 {
+    internal const string PinnedLoadingSubtitle = "Loading…";
+    internal const string PinnedLoadFailedSubtitle = "Loading failed";
+
     /// <summary>
     /// Builds a list item for a conversion result with pin/unpin actions kept in sync
-    /// across the main converter and Today's rates pages.
+    /// on the main converter (search results and pinned empty listing).
+    /// Enter copies; pin/unpin is available from the context menu.
     /// </summary>
     /// <param name="treatAsPinned">
     /// When true, always render as pinned (e.g. rows loaded from the pins list),
@@ -30,7 +24,6 @@ internal static class ConversionResultItemFactory
         ConversionOutcome outcome,
         PinnedConversionManager pinManager,
         Action onPinsChanged,
-        ConversionPinAction pinAction = ConversionPinAction.Secondary,
         bool treatAsPinned = false)
     {
         PinnedConversion pin = new(outcome.Amount, outcome.FromCurrency, outcome.ToCurrency);
@@ -87,22 +80,6 @@ internal static class ConversionResultItemFactory
         pinCommand.ItemsChanged += onPinsChanged;
         CopyTextCommand copyCommand = CurrencyConverter.CreateCopyCommand(outcome.ToFormatted);
 
-        if (pinAction == ConversionPinAction.Primary)
-        {
-            return new ListItem(pinCommand)
-            {
-                Title = outcome.Item.Title,
-                Subtitle = "Press Enter to pin this conversion",
-                Icon = CurrencyIconManager.For(toCode),
-                Details = outcome.Item.Details,
-                Tags = outcome.Item.Tags,
-                MoreCommands =
-                [
-                    new CommandContextItem(copyCommand)
-                ],
-            };
-        }
-
         return new ListItem(copyCommand)
         {
             Title = outcome.Item.Title,
@@ -117,24 +94,38 @@ internal static class ConversionResultItemFactory
         };
     }
 
-    /// <summary>Placeholder row for a pin that produced no conversion outcomes.</summary>
-    internal static ListItem CreatePinnedPlaceholder(
+    /// <summary>Row shown while a pinned conversion's rate is still loading.</summary>
+    internal static ListItem CreatePinnedLoadingItem(
         PinnedConversion pin,
         PinnedConversionManager pinManager,
-        Action onPinsChanged)
+        Action onPinsChanged) =>
+        CreatePinnedStatusItem(pin, pinManager, onPinsChanged, PinnedLoadingSubtitle, IconManager.Icon);
+
+    /// <summary>Row shown when a pinned conversion failed to load (HTTP/cache error).</summary>
+    internal static ListItem CreatePinnedLoadFailedItem(
+        PinnedConversion pin,
+        PinnedConversionManager pinManager,
+        Action onPinsChanged) =>
+        CreatePinnedStatusItem(pin, pinManager, onPinsChanged, PinnedLoadFailedSubtitle, IconManager.WarningIcon);
+
+    private static ListItem CreatePinnedStatusItem(
+        PinnedConversion pin,
+        PinnedConversionManager pinManager,
+        Action onPinsChanged,
+        string subtitle,
+        IconInfo icon)
     {
         string fromCode = pin.FromCurrency.ToUpperInvariant();
         string toCode = pin.ToCurrency.ToUpperInvariant();
-        string title = pin.ToDisplayLabel();
 
         UnpinConversionCommand unpinCommand = new(pinManager, pin);
         unpinCommand.ItemsChanged += onPinsChanged;
 
         return new ListItem(new NoOpCommand())
         {
-            Title = title,
-            Subtitle = "Unable to convert this pinned pair",
-            Icon = IconManager.WarningIcon,
+            Title = pin.ToDisplayLabel(),
+            Subtitle = subtitle,
+            Icon = icon,
             Tags =
             [
                 new Tag("Pinned"),

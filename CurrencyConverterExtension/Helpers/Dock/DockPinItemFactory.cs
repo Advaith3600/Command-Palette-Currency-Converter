@@ -32,11 +32,11 @@ internal sealed class DockPinItemFactory
         _refreshGroupAsync = refreshGroupAsync;
     }
 
-    internal IListItem CreateEmptyPinsPlaceholder(ICommand todaysRatesCommand) =>
-        new ListItem(todaysRatesCommand)
+    internal IListItem CreateEmptyPinsPlaceholder(ICommand openConverterCommand) =>
+        new ListItem(openConverterCommand)
         {
             Title = "Pin conversions",
-            Subtitle = "Pin a conversion from Currency Converter or Today's rates",
+            Subtitle = "Pin a conversion from Currency Converter",
             Icon = _icon,
         };
 

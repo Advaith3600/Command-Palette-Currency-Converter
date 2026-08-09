@@ -23,7 +23,7 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     private readonly PinnedConversionManager _pinManager;
     private readonly AliasManager _aliasManager;
     private readonly IconInfo _icon;
-    private readonly ICommand _todaysRatesCommand;
+    private readonly ICommand _openConverterCommand;
     private readonly DockPinItemFactory _itemFactory;
     private readonly object _publishGate = new();
 
@@ -42,13 +42,13 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         PinnedConversionManager pinManager,
         AliasManager aliasManager,
         IconInfo icon,
-        ICommand todaysRatesCommand)
+        ICommand openConverterCommand)
     {
         _converter = converter;
         _pinManager = pinManager;
         _aliasManager = aliasManager;
         _icon = icon;
-        _todaysRatesCommand = todaysRatesCommand;
+        _openConverterCommand = openConverterCommand;
         _itemFactory = new DockPinItemFactory(converter, pinManager, icon, RefreshGroupAsync);
     }
 
@@ -276,7 +276,7 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         List<PinnedConversion> pins = _pinManager.GetAllPins();
         if (pins.Count == 0)
         {
-            return ([_itemFactory.CreateEmptyPinsPlaceholder(_todaysRatesCommand)], true);
+            return ([_itemFactory.CreateEmptyPinsPlaceholder(_openConverterCommand)], true);
         }
 
         (IListItem Item, bool Succeeded)[] results = await Task.WhenAll(
