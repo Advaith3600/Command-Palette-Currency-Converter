@@ -70,50 +70,42 @@ internal sealed partial class CurrencyConverter : IDisposable
         string toCurrency,
         CancellationToken cancellationToken = default)
     {
-        List<(int index, Task<ConversionOutcome?> task)> conversionTasks = [];
-        int index = 0;
+        List<Task<ConversionOutcome?>> conversionTasks = [];
 
         if (string.IsNullOrEmpty(fromCurrency))
         {
             if (!string.IsNullOrEmpty(toCurrency))
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, toCurrency, cancellationToken)));
+                conversionTasks.Add(GetConversionAsync(amountToConvert, _settings.LocalCurrency, toCurrency, cancellationToken));
             }
             else
             {
                 foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken)));
+                    conversionTasks.Add(GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken));
                 }
 
                 foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken)));
+                    conversionTasks.Add(GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken));
                 }
             }
         }
         else if (string.IsNullOrEmpty(toCurrency))
         {
-            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken)));
+            conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken));
 
             foreach (string currency in _settings.Currencies)
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, currency, cancellationToken)));
+                conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, currency, cancellationToken));
             }
         }
         else
         {
-            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, toCurrency, cancellationToken)));
+            conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, toCurrency, cancellationToken));
         }
 
-        await Task.WhenAll(conversionTasks.Select(t => t.task)).ConfigureAwait(false);
-
-        var results = new ConversionOutcome?[conversionTasks.Count];
-        foreach (var task in conversionTasks)
-        {
-            results[task.index] = await task.task.ConfigureAwait(false);
-        }
-
+        ConversionOutcome?[] results = await Task.WhenAll(conversionTasks).ConfigureAwait(false);
         return results.Where(r => r != null).Select(r => r!).ToList();
     }
 

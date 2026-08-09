@@ -178,21 +178,45 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             List<IListItem> items = [];
             List<PinnedConversion> pins = _pinManager.GetAllPins();
 
+            string local = _settings.LocalCurrency.Trim();
+            string[] otherCurrencies = [.. _settings.Currencies
+                .Select(c => c.Trim())
+                .Where(c => c.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+            string[] convertible = [.. otherCurrencies
+                .Where(c => !string.Equals(c, local, StringComparison.OrdinalIgnoreCase))];
+            bool hasConvertibleOther = convertible.Length > 0;
+
+            ct.ThrowIfCancellationRequested();
+
+            // Kick off pin and quick-rate fetches together so different bases overlap.
+            Task<List<ConversionOutcome>[]> pinsTask = pins.Count == 0
+                ? Task.FromResult(Array.Empty<List<ConversionOutcome>>())
+                : Task.WhenAll(pins.Select(pin => _converter.GetConversionOutcomesAsync(
+                    pin.Amount,
+                    pin.FromCurrency,
+                    pin.ToCurrency,
+                    ct)));
+
+            Task<List<ConversionOutcome>[]> ratesTask = !hasConvertibleOther
+                ? Task.FromResult(Array.Empty<List<ConversionOutcome>>())
+                : Task.WhenAll(convertible.Select(currency => _converter.GetConversionOutcomesAsync(
+                    1m,
+                    local,
+                    currency,
+                    ct)));
+
+            await Task.WhenAll(pinsTask, ratesTask).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
             if (pins.Count == 0)
             {
                 items.Add(CreateHintItem());
             }
             else
             {
-                ct.ThrowIfCancellationRequested();
-                List<ConversionOutcome>[] outcomesByPin = await Task.WhenAll(
-                    pins.Select(pin => _converter.GetConversionOutcomesAsync(
-                        pin.Amount,
-                        pin.FromCurrency,
-                        pin.ToCurrency,
-                        ct))).ConfigureAwait(false);
-
-                ct.ThrowIfCancellationRequested();
+                List<ConversionOutcome>[] outcomesByPin = await pinsTask.ConfigureAwait(false);
                 for (int i = 0; i < pins.Count; i++)
                 {
                     PinnedConversion pin = pins[i];
@@ -215,15 +239,6 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
                 }
             }
 
-            string local = _settings.LocalCurrency.Trim();
-            string[] otherCurrencies = [.. _settings.Currencies
-                .Select(c => c.Trim())
-                .Where(c => c.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)];
-
-            bool hasConvertibleOther = otherCurrencies.Any(c =>
-                !string.Equals(c, local, StringComparison.OrdinalIgnoreCase));
-
             if (!hasConvertibleOther)
             {
                 items.Add(new ListItem(_settings.Settings.SettingsPage)
@@ -235,17 +250,7 @@ internal sealed partial class CurrencyConverterTodaysRatesPage : DynamicListPage
             }
             else
             {
-                string[] convertible = [.. otherCurrencies
-                    .Where(c => !string.Equals(c, local, StringComparison.OrdinalIgnoreCase))];
-
-                ct.ThrowIfCancellationRequested();
-                List<ConversionOutcome>[] outcomesByCurrency = await Task.WhenAll(
-                    convertible.Select(currency => _converter.GetConversionOutcomesAsync(
-                        1m,
-                        local,
-                        currency,
-                        ct))).ConfigureAwait(false);
-
+                List<ConversionOutcome>[] outcomesByCurrency = await ratesTask.ConfigureAwait(false);
                 foreach (List<ConversionOutcome> outcomes in outcomesByCurrency)
                 {
                     foreach (ConversionOutcome outcome in outcomes)
