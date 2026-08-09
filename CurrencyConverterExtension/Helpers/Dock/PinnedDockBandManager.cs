@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,12 @@ namespace CurrencyConverterExtension.Helpers;
 
 internal sealed partial class PinnedDockBandManager : IDisposable
 {
+    private static readonly TimeSpan ResumeNetworkSettleDelay = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromHours(1);
+
+    // Seconds between failed-refresh retries: 5s → 15s → 30s → 60s → 2m → 5m (cap).
+    private static readonly int[] RetryDelaySeconds = [5, 15, 30, 60, 120, 300];
+
     private readonly CurrencyConverter _converter;
     private readonly PinnedConversionManager _pinManager;
     private readonly AliasManager _aliasManager;
@@ -21,11 +28,12 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     private readonly object _publishGate = new();
 
     private WrappedDockItem? _pinnedDockBand;
-    private int _lastDockRatesDayNumber; // 0 = never stamped; otherwise DateOnly.DayNumber
-    private PeriodicTimer? _dockDayTimer;
-    private CancellationTokenSource? _dockDayCts;
+    private PeriodicTimer? _dockRefreshTimer;
+    private CancellationTokenSource? _dockMonitorCts;
     private CancellationTokenSource? _refreshCts;
-    private int _dockDayMonitorStarted;
+    private CancellationTokenSource? _retryCts;
+    private int _retryAttempt;
+    private int _dockMonitorStarted;
     private int _dirty = 1; // Start dirty so the first GetDockBands loads pins/rates.
     private int _disposed;
 
@@ -47,11 +55,22 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     internal ICommandItem? Band => _pinnedDockBand;
 
     /// <summary>
-    /// Returns true when dock rates should be refreshed for a new local calendar day
-    /// (including when no successful refresh has been stamped yet).
+    /// When a refresh fails, keep the on-screen band if it already shows real conversions.
     /// </summary>
-    internal static bool NeedsDailyRefresh(DateOnly? lastRatesDay, DateOnly today) =>
-        lastRatesDay != today;
+    internal static bool ShouldKeepPreviousItems(bool allSucceeded, bool currentHasSuccessfulItems) =>
+        !allSucceeded && currentHasSuccessfulItems;
+
+    /// <summary>
+    /// Exponential-ish backoff for failed dock refreshes. <paramref name="attempt"/> is 1-based.
+    /// </summary>
+    internal static TimeSpan NextRetryDelay(int attempt)
+    {
+        int index = Math.Clamp(attempt - 1, 0, RetryDelaySeconds.Length - 1);
+        return TimeSpan.FromSeconds(RetryDelaySeconds[index]);
+    }
+
+    internal static bool HasSuccessfulConversionItems(IListItem[]? items) =>
+        items is not null && items.Any(static i => i.Command is CopyTextCommand);
 
     internal void MarkDirty() => Interlocked.Exchange(ref _dirty, 1);
 
@@ -68,14 +87,9 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             {
                 Icon = _icon,
             };
-            EnsureDayMonitor();
         }
 
-        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        bool needsDay = NeedsDailyRefresh(ReadLastRatesDay(), today);
-        bool dirty = Volatile.Read(ref _dirty) != 0;
-
-        if (dirty || needsDay)
+        if (Volatile.Read(ref _dirty) != 0)
         {
             _ = RefreshAsync();
         }
@@ -90,17 +104,25 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             return;
         }
 
+        CancelPendingRetry();
+
         CancellationTokenSource refreshCts = new();
         CancellationTokenSource? previous = Interlocked.Exchange(ref _refreshCts, refreshCts);
         previous?.Cancel();
         previous?.Dispose();
         CancellationToken ct = refreshCts.Token;
 
+        bool scheduleRetry = false;
+        bool hasPins = false;
+
         try
         {
             await _pinManager.EnsureInitializedAsync().ConfigureAwait(false);
             await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
+
+            hasPins = _pinManager.GetAllPins().Count > 0;
+            SyncBackgroundMonitor(hasPins);
 
             (IListItem[] items, bool allSucceeded) = await BuildDockBandItemsAsync(ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
@@ -112,14 +134,24 @@ internal sealed partial class PinnedDockBandManager : IDisposable
                     return;
                 }
 
-                _pinnedDockBand.Items = items;
-                Interlocked.Exchange(ref _dirty, 0);
+                bool keepPrevious = ShouldKeepPreviousItems(
+                    allSucceeded,
+                    HasSuccessfulConversionItems(_pinnedDockBand.Items));
 
-                // Only stamp the calendar day after a fully successful full-band refresh
-                // (or when there are no pins). Never stamp on placeholder-only failure.
+                if (!keepPrevious)
+                {
+                    _pinnedDockBand.Items = items;
+                }
+
                 if (allSucceeded)
                 {
-                    WriteLastRatesDay(DateOnly.FromDateTime(DateTime.Now));
+                    Interlocked.Exchange(ref _dirty, 0);
+                    Interlocked.Exchange(ref _retryAttempt, 0);
+                }
+                else
+                {
+                    Interlocked.Exchange(ref _dirty, 1);
+                    scheduleRetry = hasPins;
                 }
             }
         }
@@ -129,7 +161,9 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         }
         catch (Exception)
         {
-            // Keep whatever items are currently shown; do not stamp the day.
+            // Keep whatever items are currently shown.
+            Interlocked.Exchange(ref _dirty, 1);
+            scheduleRetry = hasPins;
         }
         finally
         {
@@ -137,6 +171,11 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             {
                 Interlocked.CompareExchange(ref _refreshCts, null, refreshCts);
                 refreshCts.Dispose();
+            }
+
+            if (scheduleRetry && Volatile.Read(ref _disposed) == 0)
+            {
+                ScheduleRetry();
             }
         }
     }
@@ -151,6 +190,8 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         {
             return false;
         }
+
+        CancelPendingRetry();
 
         CancellationTokenSource refreshCts = new();
         CancellationTokenSource? previous = Interlocked.Exchange(ref _refreshCts, refreshCts);
@@ -207,7 +248,6 @@ internal sealed partial class PinnedDockBandManager : IDisposable
                 }
 
                 _pinnedDockBand.Items = merged;
-                // Do not stamp _lastDockRatesDay — this is only one from-currency group.
             }
 
             return true;
@@ -252,45 +292,116 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         return (items, allSucceeded);
     }
 
-    private DateOnly? ReadLastRatesDay()
+    /// <summary>
+    /// Background refresh (hourly / resume / network) only runs while there are pinned conversions.
+    /// </summary>
+    private void SyncBackgroundMonitor(bool hasPins)
     {
-        int dayNumber = _lastDockRatesDayNumber;
-        return dayNumber == 0 ? null : DateOnly.FromDayNumber(dayNumber);
-    }
-
-    private void WriteLastRatesDay(DateOnly day) =>
-        _lastDockRatesDayNumber = day.DayNumber;
-
-    private void EnsureDayMonitor()
-    {
-        if (Interlocked.Exchange(ref _dockDayMonitorStarted, 1) != 0)
+        if (Volatile.Read(ref _disposed) != 0)
         {
             return;
         }
 
-        _dockDayCts = new CancellationTokenSource();
-        PeriodicTimer timer = new(TimeSpan.FromHours(1));
-        _dockDayTimer = timer;
-        _ = RunDockDayMonitorAsync(timer, _dockDayCts.Token);
+        if (hasPins)
+        {
+            EnsureMonitor();
+        }
+        else
+        {
+            StopBackgroundMonitor();
+        }
+    }
+
+    private void EnsureMonitor()
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
+        if (Interlocked.Exchange(ref _dockMonitorStarted, 1) != 0)
+        {
+            return;
+        }
+
+        _dockMonitorCts = new CancellationTokenSource();
+        PeriodicTimer timer = new(PeriodicRefreshInterval);
+        _dockRefreshTimer = timer;
+        _ = RunPeriodicRefreshAsync(timer, _dockMonitorCts.Token);
 
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
+    }
+
+    private void StopBackgroundMonitor()
+    {
+        if (Interlocked.CompareExchange(ref _dockMonitorStarted, 0, 1) != 1)
+        {
+            return;
+        }
+
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
+
+        CancellationTokenSource? monitorCts = Interlocked.Exchange(ref _dockMonitorCts, null);
+        monitorCts?.Cancel();
+        monitorCts?.Dispose();
+
+        PeriodicTimer? timer = Interlocked.Exchange(ref _dockRefreshTimer, null);
+        timer?.Dispose();
+
+        CancelPendingRetry();
     }
 
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
         if (e.Mode == PowerModes.Resume)
         {
-            _ = CheckAndRefreshForNewDayAsync();
+            _ = RefreshAfterResumeAsync();
         }
     }
 
-    private async Task RunDockDayMonitorAsync(PeriodicTimer timer, CancellationToken cancellationToken)
+    private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        if (!e.IsAvailable || Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
+        MarkDirty();
+        _ = RefreshAsync();
+    }
+
+    private async Task RefreshAfterResumeAsync()
+    {
+        CancellationToken cancellationToken = _dockMonitorCts?.Token ?? CancellationToken.None;
+
+        try
+        {
+            await Task.Delay(ResumeNetworkSettleDelay, cancellationToken).ConfigureAwait(false);
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return;
+            }
+
+            MarkDirty();
+            await RefreshAsync().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Extension process shutting down.
+        }
+    }
+
+    private async Task RunPeriodicRefreshAsync(PeriodicTimer timer, CancellationToken cancellationToken)
     {
         try
         {
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                await CheckAndRefreshForNewDayAsync().ConfigureAwait(false);
+                MarkDirty();
+                await RefreshAsync().ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -303,17 +414,64 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         }
     }
 
-    private async Task CheckAndRefreshForNewDayAsync()
+    private void ScheduleRetry()
     {
-        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        if (!NeedsDailyRefresh(ReadLastRatesDay(), today))
+        if (Volatile.Read(ref _disposed) != 0
+            || _pinnedDockBand is null
+            || _pinManager.GetAllPins().Count == 0)
         {
             return;
         }
 
-        _converter.InvalidateCacheFromPreviousDays(today);
-        MarkDirty();
-        await RefreshAsync().ConfigureAwait(false);
+        int attempt = Interlocked.Increment(ref _retryAttempt);
+        TimeSpan delay = NextRetryDelay(attempt);
+
+        CancellationTokenSource retryCts = new();
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _retryCts, retryCts);
+        previous?.Cancel();
+        previous?.Dispose();
+
+        _ = RunScheduledRetryAsync(delay, retryCts);
+    }
+
+    private async Task RunScheduledRetryAsync(TimeSpan delay, CancellationTokenSource retryCts)
+    {
+        try
+        {
+            await Task.Delay(delay, retryCts.Token).ConfigureAwait(false);
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return;
+            }
+
+            MarkDirty();
+            await RefreshAsync().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Newer refresh/retry or dispose.
+        }
+        finally
+        {
+            if (ReferenceEquals(Volatile.Read(ref _retryCts), retryCts))
+            {
+                Interlocked.CompareExchange(ref _retryCts, null, retryCts);
+                retryCts.Dispose();
+            }
+        }
+    }
+
+    private void CancelPendingRetry()
+    {
+        CancellationTokenSource? retryCts = Interlocked.Exchange(ref _retryCts, null);
+        if (retryCts is null)
+        {
+            return;
+        }
+
+        retryCts.Cancel();
+        retryCts.Dispose();
     }
 
     public void Dispose()
@@ -323,22 +481,10 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             return;
         }
 
-        if (_dockDayMonitorStarted != 0)
-        {
-            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-        }
-
-        CancellationTokenSource? dayCts = Interlocked.Exchange(ref _dockDayCts, null);
-        dayCts?.Cancel();
-        dayCts?.Dispose();
-
-        PeriodicTimer? timer = Interlocked.Exchange(ref _dockDayTimer, null);
-        timer?.Dispose();
+        StopBackgroundMonitor();
 
         CancellationTokenSource? refreshCts = Interlocked.Exchange(ref _refreshCts, null);
         refreshCts?.Cancel();
         refreshCts?.Dispose();
-
-        Interlocked.Exchange(ref _dockDayMonitorStarted, 0);
     }
 }

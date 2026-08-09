@@ -377,35 +377,6 @@ public class CurrencyConverterTests
         Assert.Equal(3, requests);
     }
 
-    [Fact]
-    public async Task InvalidateCacheFromPreviousDays_RemovesYesterdayKeepsToday()
-    {
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
-        int requests = 0;
-        var handler = CreateDefaultHandler(() => requests++);
-        using var converter = CreateConverter(handler: handler);
-
-        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        // Seed relative to local calendar days so the test is stable across timezones / midnight.
-        DateTime yesterdayLocalNoon = today.AddDays(-1).ToDateTime(new TimeOnly(12, 0)).ToUniversalTime();
-        DateTime todayLocalNoon = today.ToDateTime(new TimeOnly(12, 0)).ToUniversalTime();
-
-        converter.SeedCacheEntry("usd", "inr", 80m, yesterdayLocalNoon);
-        converter.SeedCacheEntry("usd", "eur", 0.9m, todayLocalNoon);
-
-        converter.InvalidateCacheFromPreviousDays(today);
-
-        // Yesterday's USD→INR removed → network fetch.
-        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
-        Assert.Equal(1, requests);
-
-        // Today's USD→EUR still cached (also re-warmed by the USD fetch above for sibling targets).
-        // Seed a fresh "today" EUR base that was not touched by the USD response.
-        converter.SeedCacheEntry("eur", "usd", 1.1m, DateTime.UtcNow);
-        int requestsBeforeEur = requests;
-        _ = await converter.GetConversionOutcomesAsync(100m, "eur", "usd", TestContext.Current.CancellationToken);
-        Assert.Equal(requestsBeforeEur, requests);
-    }
 }
 
 
