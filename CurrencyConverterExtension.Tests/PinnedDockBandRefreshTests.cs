@@ -1,4 +1,6 @@
 using CurrencyConverterExtension.Helpers;
+using Microsoft.CommandPalette.Extensions;
+using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 
 namespace CurrencyConverterExtension.Tests;
@@ -6,27 +8,85 @@ namespace CurrencyConverterExtension.Tests;
 public class PinnedDockBandRefreshTests
 {
     [Fact]
-    public void ShouldKeepPreviousItems_FailedRefreshWithGoodCurrent_ReturnsTrue()
+    public void MergeDockBandItems_EmptyCurrent_ReturnsIncoming()
     {
-        Assert.True(PinnedDockBandManager.ShouldKeepPreviousItems(
-            allSucceeded: false,
-            currentHasSuccessfulItems: true));
+        IListItem[] incoming =
+        [
+            CreateSuccess("pin-a", "1 USD"),
+            CreatePlaceholder("pin-b"),
+        ];
+
+        IListItem[] merged = PinnedDockBandManager.MergeDockBandItems(null, incoming);
+
+        Assert.Same(incoming, merged);
     }
 
     [Fact]
-    public void ShouldKeepPreviousItems_SuccessfulRefresh_ReturnsFalse()
+    public void MergeDockBandItems_PrefersNewSuccessOverPrevious()
     {
-        Assert.False(PinnedDockBandManager.ShouldKeepPreviousItems(
-            allSucceeded: true,
-            currentHasSuccessfulItems: true));
+        IListItem[] current = [CreateSuccess("pin-a", "old")];
+        IListItem[] incoming = [CreateSuccess("pin-a", "new")];
+
+        IListItem[] merged = PinnedDockBandManager.MergeDockBandItems(current, incoming);
+
+        Assert.Same(incoming[0], merged[0]);
+        Assert.Equal("new", merged[0].Title);
     }
 
     [Fact]
-    public void ShouldKeepPreviousItems_FailedRefreshWithEmptyCurrent_ReturnsFalse()
+    public void MergeDockBandItems_KeepsPreviousSuccessWhenIncomingIsPlaceholder()
     {
-        Assert.False(PinnedDockBandManager.ShouldKeepPreviousItems(
-            allSucceeded: false,
-            currentHasSuccessfulItems: false));
+        IListItem previous = CreateSuccess("pin-a", "1.00 EUR");
+        IListItem[] current = [previous];
+        IListItem[] incoming = [CreatePlaceholder("pin-a")];
+
+        IListItem[] merged = PinnedDockBandManager.MergeDockBandItems(current, incoming);
+
+        Assert.Same(previous, merged[0]);
+        Assert.Equal("1.00 EUR", merged[0].Title);
+    }
+
+    [Fact]
+    public void MergeDockBandItems_MixedSuccessAndFailure_MergesPerPin()
+    {
+        IListItem previousA = CreateSuccess("pin-a", "old-a");
+        IListItem previousB = CreateSuccess("pin-b", "old-b");
+        IListItem[] current = [previousA, previousB];
+
+        IListItem newA = CreateSuccess("pin-a", "new-a");
+        IListItem failedB = CreatePlaceholder("pin-b");
+        IListItem[] incoming = [newA, failedB];
+
+        IListItem[] merged = PinnedDockBandManager.MergeDockBandItems(current, incoming);
+
+        Assert.Same(newA, merged[0]);
+        Assert.Same(previousB, merged[1]);
+    }
+
+    [Fact]
+    public void MergeDockBandItems_NewPinWithNoPrevious_UsesPlaceholder()
+    {
+        IListItem[] current = [CreateSuccess("pin-a", "1 USD")];
+        IListItem placeholder = CreatePlaceholder("pin-c");
+        IListItem[] incoming = [CreateSuccess("pin-a", "2 USD"), placeholder];
+
+        IListItem[] merged = PinnedDockBandManager.MergeDockBandItems(current, incoming);
+
+        Assert.Equal(2, merged.Length);
+        Assert.Equal("2 USD", merged[0].Title);
+        Assert.Same(placeholder, merged[1]);
+    }
+
+    [Fact]
+    public void IsSuccessfulConversionItem_CopyTextCommand_ReturnsTrue()
+    {
+        Assert.True(PinnedDockBandManager.IsSuccessfulConversionItem(CreateSuccess("pin-a", "1")));
+    }
+
+    [Fact]
+    public void IsSuccessfulConversionItem_Placeholder_ReturnsFalse()
+    {
+        Assert.False(PinnedDockBandManager.IsSuccessfulConversionItem(CreatePlaceholder("pin-a")));
     }
 
     [Theory]
@@ -43,4 +103,16 @@ public class PinnedDockBandRefreshTests
     {
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), PinnedDockBandManager.NextRetryDelay(attempt));
     }
+
+    private static ListItem CreateSuccess(string commandId, string title)
+    {
+        CopyTextCommand command = new(title) { Id = commandId };
+        return new ListItem(command) { Title = title };
+    }
+
+    private static ListItem CreatePlaceholder(string commandId) =>
+        new(new NoOpCommand { Id = commandId })
+        {
+            Title = "placeholder",
+        };
 }

@@ -13,7 +13,7 @@ namespace CurrencyConverterExtension.Helpers;
 
 internal sealed partial class PinnedDockBandManager : IDisposable
 {
-    private static readonly TimeSpan ResumeNetworkSettleDelay = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan NetworkSettleDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromHours(1);
 
     // Seconds between failed-refresh retries: 5s → 15s → 30s → 60s → 2m → 5m (cap).
@@ -32,6 +32,7 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     private CancellationTokenSource? _dockMonitorCts;
     private CancellationTokenSource? _refreshCts;
     private CancellationTokenSource? _retryCts;
+    private CancellationTokenSource? _settleCts;
     private int _retryAttempt;
     private int _dockMonitorStarted;
     private int _dirty = 1; // Start dirty so the first GetDockBands loads pins/rates.
@@ -55,12 +56,6 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     internal ICommandItem? Band => _pinnedDockBand;
 
     /// <summary>
-    /// When a refresh fails, keep the on-screen band if it already shows real conversions.
-    /// </summary>
-    internal static bool ShouldKeepPreviousItems(bool allSucceeded, bool currentHasSuccessfulItems) =>
-        !allSucceeded && currentHasSuccessfulItems;
-
-    /// <summary>
     /// Exponential-ish backoff for failed dock refreshes. <paramref name="attempt"/> is 1-based.
     /// </summary>
     internal static TimeSpan NextRetryDelay(int attempt)
@@ -69,8 +64,48 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         return TimeSpan.FromSeconds(RetryDelaySeconds[index]);
     }
 
-    internal static bool HasSuccessfulConversionItems(IListItem[]? items) =>
-        items is not null && items.Any(static i => i.Command is CopyTextCommand);
+    internal static bool IsSuccessfulConversionItem(IListItem? item) =>
+        item?.Command is CopyTextCommand;
+
+    /// <summary>
+    /// Prefer newly fetched successful pins; for failures keep the previous successful item
+    /// for the same command Id so the dock stays complete while retries continue.
+    /// </summary>
+    internal static IListItem[] MergeDockBandItems(IListItem[]? current, IListItem[] incoming)
+    {
+        if (incoming.Length == 0 || current is null || current.Length == 0)
+        {
+            return incoming;
+        }
+
+        Dictionary<string, IListItem> previousSuccessById = [];
+        foreach (IListItem item in current)
+        {
+            string? id = item.Command?.Id;
+            if (!string.IsNullOrEmpty(id) && IsSuccessfulConversionItem(item))
+            {
+                previousSuccessById[id] = item;
+            }
+        }
+
+        IListItem[] merged = new IListItem[incoming.Length];
+        for (int i = 0; i < incoming.Length; i++)
+        {
+            IListItem item = incoming[i];
+            if (IsSuccessfulConversionItem(item))
+            {
+                merged[i] = item;
+                continue;
+            }
+
+            string? id = item.Command?.Id;
+            merged[i] = id is not null && previousSuccessById.TryGetValue(id, out IListItem? previous)
+                ? previous
+                : item;
+        }
+
+        return merged;
+    }
 
     internal void MarkDirty() => Interlocked.Exchange(ref _dirty, 1);
 
@@ -134,14 +169,8 @@ internal sealed partial class PinnedDockBandManager : IDisposable
                     return;
                 }
 
-                bool keepPrevious = ShouldKeepPreviousItems(
-                    allSucceeded,
-                    HasSuccessfulConversionItems(_pinnedDockBand.Items));
-
-                if (!keepPrevious)
-                {
-                    _pinnedDockBand.Items = items;
-                }
+                // Always assign so CmdPal receives RaiseItemsChanged (needed after resume).
+                _pinnedDockBand.Items = MergeDockBandItems(_pinnedDockBand.Items, items);
 
                 if (allSucceeded)
                 {
@@ -283,8 +312,7 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             pins.Select(async pin =>
             {
                 IListItem item = await _itemFactory.CreatePinnedDockItemAsync(pin, cancellationToken).ConfigureAwait(false);
-                bool succeeded = item.Command is CopyTextCommand;
-                return (item, succeeded);
+                return (item, IsSuccessfulConversionItem(item));
             })).ConfigureAwait(false);
 
         IListItem[] items = [.. results.Select(r => r.Item)];
@@ -343,6 +371,8 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
 
+        CancelPendingSettle();
+
         CancellationTokenSource? monitorCts = Interlocked.Exchange(ref _dockMonitorCts, null);
         monitorCts?.Cancel();
         monitorCts?.Dispose();
@@ -357,7 +387,7 @@ internal sealed partial class PinnedDockBandManager : IDisposable
     {
         if (e.Mode == PowerModes.Resume)
         {
-            _ = RefreshAfterResumeAsync();
+            ScheduleSettledRefresh();
         }
     }
 
@@ -368,17 +398,36 @@ internal sealed partial class PinnedDockBandManager : IDisposable
             return;
         }
 
-        MarkDirty();
-        _ = RefreshAsync();
+        ScheduleSettledRefresh();
     }
 
-    private async Task RefreshAfterResumeAsync()
+    /// <summary>
+    /// Debounce resume / network-restore refreshes so they share one settle delay
+    /// and do not cancel each other with immediate RefreshAsync calls.
+    /// </summary>
+    private void ScheduleSettledRefresh()
     {
-        CancellationToken cancellationToken = _dockMonitorCts?.Token ?? CancellationToken.None;
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
 
+        CancellationTokenSource settleCts = _dockMonitorCts is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(_dockMonitorCts.Token);
+
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _settleCts, settleCts);
+        previous?.Cancel();
+        previous?.Dispose();
+
+        _ = RunSettledRefreshAsync(settleCts);
+    }
+
+    private async Task RunSettledRefreshAsync(CancellationTokenSource settleCts)
+    {
         try
         {
-            await Task.Delay(ResumeNetworkSettleDelay, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(NetworkSettleDelay, settleCts.Token).ConfigureAwait(false);
 
             if (Volatile.Read(ref _disposed) != 0)
             {
@@ -390,8 +439,28 @@ internal sealed partial class PinnedDockBandManager : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Extension process shutting down.
+            // Newer settle refresh, monitor stop, or dispose.
         }
+        finally
+        {
+            if (ReferenceEquals(Volatile.Read(ref _settleCts), settleCts))
+            {
+                Interlocked.CompareExchange(ref _settleCts, null, settleCts);
+                settleCts.Dispose();
+            }
+        }
+    }
+
+    private void CancelPendingSettle()
+    {
+        CancellationTokenSource? settleCts = Interlocked.Exchange(ref _settleCts, null);
+        if (settleCts is null)
+        {
+            return;
+        }
+
+        settleCts.Cancel();
+        settleCts.Dispose();
     }
 
     private async Task RunPeriodicRefreshAsync(PeriodicTimer timer, CancellationToken cancellationToken)
