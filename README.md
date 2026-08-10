@@ -77,7 +77,7 @@ Convert between fiat and cryptocurrencies in either direction. See the [full lis
 
 ```
 1 btc to usd
-1209 btc to usd
+1000 usd to btc
 ```
 
 ![Crypto conversion](screenshots/conversion-crypto.png)
@@ -105,22 +105,24 @@ Type a math expression and the extension evaluates it with BODMAS/PEMDAS before 
 
 ## Pins & dock
 
-### Pinning conversions
+Pin conversions you check often. They stay at the top of Currency Converter (when the search box is empty) and also appear on the Command Palette dock.
 
-Keep the pairs you check often at the top of the main converter (when the search box is empty) and on the dock. Pins show a brief **Loading…** state, then update to live rates (or **Loading failed** if the request fails).
+### Pin a conversion
 
-| Where                  | Pin                           | Unpin                         | Enter                       |
-| ---------------------- | ----------------------------- | ----------------------------- | --------------------------- |
-| Main converter results | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
+1. Search a conversion, for example `34 btc to aed`.
+2. Open the context menu (`Ctrl + Enter`) and choose **Pin**.
+3. Open Currency Converter again with an empty search — your pins load at the top with live rates.
 
-Example: search `34 btc to aed`, open the context menu (`Ctrl + Enter`), and pin it. Pinned conversions appear at the top of the main page with live rates the next time you open Currency Converter.
+Pins briefly show **Loading…**, then the live amount (or **Loading failed** if the request fails). **Enter** still copies the converted amount; use the context menu (`Ctrl + Enter`) to **Unpin**.
+
+![Pinned conversions](screenshots/pinned-conversions.png)
 
 ### Currency pins on the dock
 
-Pinned conversions also show up in the Command Palette **Currency pins** dock band — so your favorite rates are visible without opening the extension.
+The same pins show up in the Command Palette **Currency pins** dock band, so favorite rates are visible without opening the extension.
 
-- Press **Enter** on a dock pin to copy the converted amount
-- Use the context menu to **Refresh** rates for that pin's base currency, or **Unpin** it
+- **Enter** copies the converted amount
+- Context menu: **Refresh** rates for that pin's base currency, or **Unpin**
 - Dock rates refresh automatically on a new local calendar day, and whenever you change your pins
 
 ![Dock pins](screenshots/dock-pins.png)
