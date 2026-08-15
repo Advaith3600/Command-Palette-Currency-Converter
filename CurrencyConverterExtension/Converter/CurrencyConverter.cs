@@ -368,6 +368,13 @@ internal sealed partial class CurrencyConverter : IDisposable
             return cached;
         }
 
+        // A successful populate stores every target for this base. A missing
+        // pair after that is invalid — do not fetch the same JSON again.
+        if (HasFreshRatesForBase(fromCurrency))
+        {
+            throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
+        }
+
         // Coalesce concurrent misses for the same base currency into one HTTP fetch.
         Task populateTask = _inFlightByBase.GetOrAdd(
             fromCurrency,
@@ -417,6 +424,21 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
 
         cached = default;
+        return false;
+    }
+
+    private bool HasFreshRatesForBase(string fromCurrency)
+    {
+        DateTime minTimestamp = DateTime.UtcNow.AddHours(-_settings.ConversionCacheDuration);
+        foreach (KeyValuePair<(string From, string To), (decimal Rate, DateTime Timestamp)> entry in _conversionCache)
+        {
+            if (string.Equals(entry.Key.From, fromCurrency, StringComparison.OrdinalIgnoreCase)
+                && entry.Value.Timestamp > minTimestamp)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 

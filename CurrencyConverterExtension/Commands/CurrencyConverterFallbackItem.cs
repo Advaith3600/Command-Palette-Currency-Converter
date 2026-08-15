@@ -19,6 +19,9 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
     internal const string FallbackId = "CurrencyConverter.Fallback.Convert";
     private const string FallbackDisplayTitle = "Convert with Currency Converter";
     private const string ConverterSubtitle = "Currency Converter";
+    // CmdPal still calls UpdateQuery on essentially every keystroke (~50ms).
+    // Debounce only the network path; cache hits stay immediate.
+    private const int DebounceMilliseconds = 300;
 
     // Stable Id so CmdPal can match "Include in global results" after Command swaps.
     public override string Id => FallbackId;
@@ -137,6 +140,21 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
             }
 
             FallbackConversionPair selected = pair.Value;
+            if (TryApplyCached(parsed.Amount, selected))
+            {
+                return;
+            }
+
+            WaitFor(Task.Delay(DebounceMilliseconds, ct));
+            if (IsSuperseded(version, ct))
+            {
+                return;
+            }
+
+            if (TryApplyCached(parsed.Amount, selected))
+            {
+                return;
+            }
 
             try
             {
@@ -185,6 +203,18 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
                 ApplyFailure(query, null);
             }
         }
+    }
+
+    private bool TryApplyCached(decimal amount, FallbackConversionPair pair)
+    {
+        if (_converter.TryConvertFromCache(amount, pair.FromCurrency, pair.ToCurrency, out ConversionOutcome? cached)
+            && cached is { IsSuccess: true })
+        {
+            ApplyOutcome(cached);
+            return true;
+        }
+
+        return false;
     }
 
     private bool IsSuperseded(int version, CancellationToken ct) =>
