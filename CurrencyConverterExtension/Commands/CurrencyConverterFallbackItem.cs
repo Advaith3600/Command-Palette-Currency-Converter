@@ -4,10 +4,10 @@
 
 using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
+using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,23 +16,22 @@ namespace CurrencyConverterExtension.Commands;
 
 internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandItem, IDisposable
 {
-    private const string FallbackId = "CurrencyConverter.Fallback.Convert";
+    internal const string FallbackId = "CurrencyConverter.Fallback.Convert";
     private const string FallbackDisplayTitle = "Convert with Currency Converter";
     private const string ConverterSubtitle = "Currency Converter";
-    private const int DebounceMilliseconds = 300;
 
-    // Stable Id so CmdPal can disable or pin this fallback if the host honors it.
+    // Stable Id so CmdPal can match "Include in global results" after Command swaps.
     public override string Id => FallbackId;
 
     private readonly CurrencyConverterExtensionPage _page;
     private readonly SettingsManager _settings;
     private readonly AliasManager _aliasManager;
     private readonly CurrencyConverter _converter;
-    private readonly NoOpCommand _hiddenCommand = new() { Name = string.Empty };
+    private readonly NoOpCommand _hiddenCommand = new() { Name = string.Empty, Id = FallbackId };
     private readonly CommandContextItem _openConverterContextItem;
 
-    private CancellationTokenSource? _debounceCts;
     private CancellationTokenSource? _conversionCts;
+    private int _queryVersion;
     private bool _disposed;
 
     internal CurrencyConverterFallbackItem(
@@ -101,39 +100,12 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
             return;
         }
 
-        if (pair is { } placeholder)
-        {
-            SetPlaceholder(parsed.Amount, placeholder);
-        }
-        else
-        {
-            ShowOpenConverter(trimmed);
-        }
-
-        _ = ConvertAfterDebounceAsync(trimmed, parsed);
+        ConvertNow(trimmed, parsed);
     }
 
-    private async Task ConvertAfterDebounceAsync(string query, ParsedQuery parsed)
+    private void ConvertNow(string query, ParsedQuery parsed)
     {
-        CancellationTokenSource debounceCts = new();
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, debounceCts);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
-        try
-        {
-            await Task.Delay(DebounceMilliseconds, debounceCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        await ConvertNowAsync(query, parsed).ConfigureAwait(false);
-    }
-
-    private async Task ConvertNowAsync(string query, ParsedQuery parsed)
-    {
+        int version = Interlocked.Increment(ref _queryVersion);
         CancellationTokenSource conversionCts = new();
         CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, conversionCts);
         previousConversion?.Cancel();
@@ -142,15 +114,21 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
 
         try
         {
-            await _aliasManager.EnsureInitializedAsync().ConfigureAwait(false);
-            ct.ThrowIfCancellationRequested();
+            WaitFor(_aliasManager.EnsureInitializedAsync());
+            if (IsSuperseded(version, ct))
+            {
+                return;
+            }
 
             FallbackConversionPair? pair = FallbackConversionSelector.TrySelect(
                 parsed,
                 _settings.LocalCurrency,
                 _settings.Currencies,
                 _aliasManager);
-            ct.ThrowIfCancellationRequested();
+            if (IsSuperseded(version, ct))
+            {
+                return;
+            }
 
             if (pair is null)
             {
@@ -166,17 +144,23 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
             }
             catch (Exception ex)
             {
-                ApplyFailure(query, ex.Message);
+                if (!IsSuperseded(version, ct))
+                {
+                    ApplyFailure(query, ex.Message);
+                }
+
                 return;
             }
 
-            List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
+            List<ConversionOutcome> outcomes = WaitFor(_converter.GetConversionOutcomesAsync(
                 parsed.Amount,
                 selected.FromCurrency,
                 selected.ToCurrency,
-                ct).ConfigureAwait(false);
-
-            ct.ThrowIfCancellationRequested();
+                ct));
+            if (IsSuperseded(version, ct))
+            {
+                return;
+            }
 
             ConversionOutcome? success = outcomes.FirstOrDefault(o => o.IsSuccess);
             if (success is not null)
@@ -189,37 +173,34 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
         }
         catch (OperationCanceledException)
         {
-            if (!ct.IsCancellationRequested)
+            if (!IsSuperseded(version, ct))
             {
                 ApplyFailure(query, null);
             }
         }
         catch (Exception)
         {
-            if (!ct.IsCancellationRequested)
+            if (!IsSuperseded(version, ct))
             {
                 ApplyFailure(query, null);
             }
         }
     }
 
+    private bool IsSuperseded(int version, CancellationToken ct) =>
+        ct.IsCancellationRequested || version != Volatile.Read(ref _queryVersion);
+
+    private static void WaitFor(Task task) => task.GetAwaiter().GetResult();
+
+    private static T WaitFor<T>(Task<T> task) => task.GetAwaiter().GetResult();
+
     private void ApplyOutcome(ConversionOutcome outcome)
     {
-        Command = CurrencyConverter.CreateCopyCommand(outcome.ToFormatted);
+        AssignCommand(CurrencyConverter.CreateCopyCommand(outcome.ToFormatted));
         Title = outcome.Item.Title;
         Subtitle = ConverterSubtitle;
         Icon = outcome.Item.Icon ?? CurrencyIconManager.For(outcome.ToCurrency);
         MoreCommands = [_openConverterContextItem];
-    }
-
-    private void SetPlaceholder(decimal amount, FallbackConversionPair pair)
-    {
-        ShowPage();
-        string fromFormatted = amount.ToString("N", CultureInfo.CurrentCulture);
-        Title = $"{fromFormatted} {pair.FromCurrency.ToUpperInvariant()} → …";
-        Subtitle = ConverterSubtitle;
-        Icon = CurrencyIconManager.For(pair.ToCurrency);
-        MoreCommands = [];
     }
 
     private void ApplyFailure(string query, string? errorTitle)
@@ -278,15 +259,27 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
 
     private void ShowPage()
     {
-        Command = _page;
+        AssignCommand(_page);
+    }
+
+    /// <summary>
+    /// CmdPal's "Include in global results" looks up <see cref="ICommand.Id"/>.
+    /// Replacing Command with a new copy/page instance that has a different Id
+    /// drops the row into the Fallbacks section even when that setting is on.
+    /// </summary>
+    private void AssignCommand(ICommand command)
+    {
+        if (command is Command toolkitCommand)
+        {
+            toolkitCommand.Id = FallbackId;
+        }
+
+        Command = command;
     }
 
     private void CancelPendingWork()
     {
-        CancellationTokenSource? previousDebounce = Interlocked.Exchange(ref _debounceCts, null);
-        previousDebounce?.Cancel();
-        previousDebounce?.Dispose();
-
+        Interlocked.Increment(ref _queryVersion);
         CancellationTokenSource? previousConversion = Interlocked.Exchange(ref _conversionCts, null);
         previousConversion?.Cancel();
         previousConversion?.Dispose();

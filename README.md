@@ -71,7 +71,7 @@ $100 to eur
 
 Conversion titles always show both source and target (for example `2 USD → 1.86 EUR`). Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
 
-On the Command Palette home list, a matching query shows one live conversion with the subtitle **Currency Converter**:
+On the Command Palette home list, a matching query shows one live conversion (the converted amount, not a loading ellipsis) with the subtitle **Currency Converter**:
 
 - `300` or `10*30` — local currency → first Quick Conversion currency
 - `300 cny` — that currency → local (or first Quick Conversion currency if it is already local)
