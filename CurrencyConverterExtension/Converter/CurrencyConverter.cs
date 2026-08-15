@@ -126,34 +126,7 @@ internal sealed partial class CurrencyConverter : IDisposable
         try
         {
             (decimal conversionRate, DateTime rateUpdatedAt) = await GetConversionRateAsync(fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
-            (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
-
-            string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
-            string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
-
-            string fromCode = fromCurrency.ToUpperInvariant();
-            string toCode = toCurrency.ToUpperInvariant();
-
-            ListItem item = new(CreateCopyCommand(toFormatted))
-            {
-                Title = $"{fromFormatted} {fromCode} → {toFormatted} {toCode}",
-                Subtitle = string.Empty,
-                Icon = CurrencyIconManager.For(toCurrency),
-                Tags =
-                [
-                    new Tag(fromCode),
-                    new Tag(toCode),
-                ],
-                Details = CreateConversionDetails(
-                    fromFormatted,
-                    fromCode,
-                    toFormatted,
-                    toCode,
-                    conversionRate,
-                    rateUpdatedAt),
-            };
-
-            return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted, conversionRate, rateUpdatedAt);
+            return CreateSuccessOutcome(amountToConvert, fromCurrency, toCurrency, conversionRate, rateUpdatedAt);
         }
         catch (OperationCanceledException)
         {
@@ -199,6 +172,70 @@ internal sealed partial class CurrencyConverter : IDisposable
                 toCurrency,
                 string.Empty);
         }
+    }
+
+    /// <summary>
+    /// Formats a conversion from a fresh cached rate without touching the network.
+    /// </summary>
+    internal bool TryConvertFromCache(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        out ConversionOutcome? outcome)
+    {
+        outcome = null;
+        fromCurrency = GetCurrencyFromAlias(fromCurrency.ToLowerInvariant());
+        toCurrency = GetCurrencyFromAlias(toCurrency.ToLowerInvariant());
+
+        if (fromCurrency == toCurrency || string.IsNullOrEmpty(fromCurrency) || string.IsNullOrEmpty(toCurrency))
+        {
+            return false;
+        }
+
+        if (!TryGetFreshCachedRate((fromCurrency, toCurrency), out (decimal Rate, DateTime UpdatedAt) cached))
+        {
+            return false;
+        }
+
+        outcome = CreateSuccessOutcome(amountToConvert, fromCurrency, toCurrency, cached.Rate, cached.UpdatedAt);
+        return true;
+    }
+
+    private static ConversionOutcome CreateSuccessOutcome(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        decimal conversionRate,
+        DateTime rateUpdatedAt)
+    {
+        (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
+
+        string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
+        string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
+
+        string fromCode = fromCurrency.ToUpperInvariant();
+        string toCode = toCurrency.ToUpperInvariant();
+
+        ListItem item = new(CreateCopyCommand(toFormatted))
+        {
+            Title = $"{fromFormatted} {fromCode} → {toFormatted} {toCode}",
+            Subtitle = string.Empty,
+            Icon = CurrencyIconManager.For(toCurrency),
+            Tags =
+            [
+                new Tag(fromCode),
+                new Tag(toCode),
+            ],
+            Details = CreateConversionDetails(
+                fromFormatted,
+                fromCode,
+                toFormatted,
+                toCode,
+                conversionRate,
+                rateUpdatedAt),
+        };
+
+        return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted, conversionRate, rateUpdatedAt);
     }
 
     internal static CopyTextCommand CreateCopyCommand(string text) =>

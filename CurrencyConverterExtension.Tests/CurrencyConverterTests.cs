@@ -98,6 +98,38 @@ public class CurrencyConverterTests
     }
 
     [Fact]
+    public async Task TryConvertFromCache_AfterFetch_FormatsWithoutHttp()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        int requests = 0;
+        var handler = CreateDefaultHandler(() => requests++);
+        using var converter = CreateConverter(handler: handler);
+
+        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+
+        bool hit = converter.TryConvertFromCache(300m, "usd", "inr", out ConversionOutcome? outcome);
+
+        Assert.True(hit);
+        Assert.NotNull(outcome);
+        Assert.True(outcome!.IsSuccess);
+        Assert.Contains("USD", outcome.Item.Title, StringComparison.Ordinal);
+        Assert.Contains("INR", outcome.Item.Title, StringComparison.Ordinal);
+        Assert.Contains("\u2192", outcome.Item.Title, StringComparison.Ordinal);
+        Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public void TryConvertFromCache_Miss_ReturnsFalse()
+    {
+        using var converter = CreateConverter();
+
+        bool hit = converter.TryConvertFromCache(100m, "usd", "inr", out ConversionOutcome? outcome);
+
+        Assert.False(hit);
+        Assert.Null(outcome);
+    }
+
+    [Fact]
     public async Task GetConversionOutcomes_Success_IncludesConversionDetails()
     {
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");

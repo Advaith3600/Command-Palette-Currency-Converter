@@ -45,9 +45,9 @@ Download the MSIX package from the [Releases](https://github.com/advaith3600/Com
 
 ## Quick start
 
-1. Open Command Palette and run **Currency Converter** (or type a conversion query on the home list).
-2. Type a query, for example `100 usd to eur`.
-3. Press **Enter** on a result to copy the converted amount to the clipboard.
+1. Open Command Palette and type a conversion on the home list (for example `300 cny` or `10*30`). The converted amount appears immediately.
+2. Press **Enter** to copy the converted amount, or **Ctrl + Enter** and choose **Open Currency Converter**. You can also run **Currency Converter** and type there (for example `100 usd to eur`).
+3. Press **Enter** on a result in the extension to copy the converted amount to the clipboard.
 4. Open the details pane on a selected result to see the unit rate, inverse rate, and last update time.
 
 ![Conversion with details](screenshots/conversion.png)
@@ -70,6 +70,14 @@ $100 to eur
 ```
 
 Conversion titles always show both source and target (for example `2 USD → 1.86 EUR`). Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
+
+On the Command Palette home list, a matching query shows one live conversion with the subtitle **Currency Converter**:
+
+- `300` or `10*30` — local currency → first Quick Conversion currency
+- `300 cny` — that currency → local (or first Quick Conversion currency if it is already local)
+- `300 cny to eur` — that pair
+
+If local and first Quick Conversion currency are the same, a number-only query still appears as **Convert "300" with Currency Converter** so you can open the extension. Network or API errors on the home list use that same title by default (**Suppress fallback warnings**); turn the setting off to see the error instead. When a live conversion is shown, **Enter** copies the amount and **Ctrl + Enter** opens Currency Converter.
 
 ### Crypto and other currencies
 
@@ -154,6 +162,7 @@ Open Settings from the Currency Converter command (context menu → Settings).
 | **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`) |
 | **Conversion API**                  | Rate provider (see below)                                  |
 | **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI           |
+| **Suppress fallback warnings**      | On by default. Home-list conversion errors show **Convert "query" with Currency Converter** instead of a warning |
 
 ## Conversion API
 

@@ -205,6 +205,24 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Suppress fallback warnings.
+        /// </summary>
+        internal static string suppress_fallback_warnings {
+            get {
+                return ResourceManager.GetString("suppress_fallback_warnings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When a home-list conversion fails, show Convert "query" with Currency Converter instead of an error. Only applies to queries that look like a conversion.
+        /// </summary>
+        internal static string suppress_fallback_warnings_description {
+            get {
+                return ResourceManager.GetString("suppress_fallback_warnings_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Always use commas for decimals.
         /// </summary>
         internal static string use_commas {

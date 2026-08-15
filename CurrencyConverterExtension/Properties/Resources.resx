@@ -165,6 +165,12 @@
   <data name="local_currency_description" xml:space="preserve">
     <value>Set your local currency for quick conversion</value>
   </data>
+  <data name="suppress_fallback_warnings" xml:space="preserve">
+    <value>Suppress fallback warnings</value>
+  </data>
+  <data name="suppress_fallback_warnings_description" xml:space="preserve">
+    <value>When a home-list conversion fails, show Convert "query" with Currency Converter instead of an error. Only applies to queries that look like a conversion.</value>
+  </data>
   <data name="use_commas" xml:space="preserve">
     <value>Always use commas for decimals</value>
   </data>

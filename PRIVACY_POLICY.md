@@ -15,7 +15,7 @@ The following may be stored locally so the extension can work:
 
 | Data | Purpose |
 | --- | --- |
-| Settings (local currency, quick currencies, decimal separator, cache duration, selected API, optional API key) | Remember your preferences |
+| Settings (local currency, quick currencies, decimal separator, cache duration, selected API, optional API key, suppress fallback warnings) | Remember your preferences |
 | Custom currency aliases | Your alias list |
 | Pinned conversions | Pins and dock items you save |
 | In-memory exchange-rate cache | Reduce repeat network requests during a session |

@@ -66,6 +66,12 @@ namespace CurrencyConverterExtension.Helpers
             WithTitle(Resources.api_key, Resources.api_key_description),
             "");
 
+        private readonly ToggleSetting _suppressFallbackWarnings = new(
+            Namespaced(nameof(SuppressFallbackWarnings)),
+            Resources.suppress_fallback_warnings,
+            WithTitle(Resources.suppress_fallback_warnings, Resources.suppress_fallback_warnings_description),
+            true);
+
         public int DecimalSeparator => int.TryParse(_decimalSeparator.Value, out int decimalSeparator) ? decimalSeparator : 0;
         public string LocalCurrency => string.IsNullOrWhiteSpace(_localCurrency.Value)
             ? new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol
@@ -85,6 +91,7 @@ namespace CurrencyConverterExtension.Helpers
         }
         public int ConversionAPI => int.TryParse(_conversionAPI.Value, out int conversionApi) ? conversionApi : 0;
         public string ConversionAPIKey => _conversionAPIKey.Value ?? string.Empty;
+        public bool SuppressFallbackWarnings => _suppressFallbackWarnings.Value;
 
         internal static string SettingsJsonPath()
         {
@@ -102,6 +109,7 @@ namespace CurrencyConverterExtension.Helpers
             Settings.Add(_conversionCacheDuration);
             Settings.Add(_conversionAPI);
             Settings.Add(_conversionAPIKey);
+            Settings.Add(_suppressFallbackWarnings);
             // Load settings from file upon initialization
             LoadSettings();
             Settings.SettingsChanged += (s, a) => this.SaveSettings();

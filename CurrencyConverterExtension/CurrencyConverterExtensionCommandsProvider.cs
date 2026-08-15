@@ -70,7 +70,11 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
             _converter,
             _aliasCommand,
             "CurrencyConverterExtensionPage.Fallback");
-        _fallbackItem = new CurrencyConverterFallbackItem(_fallbackPage, _settingsManager);
+        _fallbackItem = new CurrencyConverterFallbackItem(
+            _fallbackPage,
+            _settingsManager,
+            _aliasManager,
+            _converter);
 
         // PinsChanged alone drives dock refresh.
         _dockBandManager = new PinnedDockBandManager(
@@ -154,6 +158,7 @@ public partial class CurrencyConverterExtensionCommandsProvider : CommandProvide
         _disposed = true;
         _pinManager.PinsChanged -= OnPinsChanged;
         _dockBandManager.Dispose();
+        _fallbackItem.Dispose();
         _mainPage.Dispose();
         _fallbackPage.Dispose();
         _converter.Dispose();
