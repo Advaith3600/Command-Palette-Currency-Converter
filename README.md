@@ -196,3 +196,9 @@ None of these APIs are affiliated with this extension. To use a different rate p
 ## Privacy
 
 This extension has no analytics or telemetry. Settings, aliases, and pins stay on your device; exchange rates are fetched from the third-party API you select. See the [Privacy Policy](PRIVACY_POLICY.md) for details.
+
+## License
+
+This project is free software licensed under the [GNU General Public License v3.0 or later](LICENSE). You can use, modify, and sell it; if you distribute it, you must keep it open source under the GPL.
+
+A few files originally from Microsoft's Command Palette extension template remain under the MIT License (see the copyright headers in those files). MIT is compatible with GPL-3.0.
