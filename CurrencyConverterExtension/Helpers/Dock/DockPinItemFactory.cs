@@ -32,11 +32,11 @@ internal sealed class DockPinItemFactory
         _refreshGroupAsync = refreshGroupAsync;
     }
 
-    internal IListItem CreateEmptyPinsPlaceholder(ICommand todaysRatesCommand) =>
-        new ListItem(todaysRatesCommand)
+    internal IListItem CreateEmptyPinsPlaceholder(ICommand openConverterCommand) =>
+        new ListItem(openConverterCommand)
         {
             Title = "Pin conversions",
-            Subtitle = "Pin a conversion from Currency Converter or Today's rates",
+            Subtitle = "Pin a conversion from Currency Converter",
             Icon = _icon,
         };
 
@@ -78,7 +78,7 @@ internal sealed class DockPinItemFactory
             {
                 Title = $"{success.ToFormatted} {success.ToCurrency.ToUpperInvariant()}",
                 Subtitle = pairLabel,
-                Icon = _icon,
+                Icon = CurrencyIconManager.For(pin.ToCurrency),
                 MoreCommands = [.. moreCommands],
             };
         }
@@ -97,7 +97,7 @@ internal sealed class DockPinItemFactory
         {
             Title = pairLabel,
             Subtitle = string.Empty,
-            Icon = _icon,
+            Icon = CurrencyIconManager.For(pin.ToCurrency),
             MoreCommands = [.. BuildDockContextItems(pin)],
         };
 

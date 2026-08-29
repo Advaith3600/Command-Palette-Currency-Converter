@@ -45,9 +45,9 @@ Download the MSIX package from the [Releases](https://github.com/advaith3600/Com
 
 ## Quick start
 
-1. Open Command Palette and run **Currency Converter** (or type a conversion query on the home list).
-2. Type a query, for example `100 usd to eur`.
-3. Press **Enter** on a result to copy the converted amount to the clipboard.
+1. Open Command Palette and type a conversion on the home list (for example `300 cny` or `10*30`). The converted amount appears immediately.
+2. Press **Enter** to copy the converted amount, or **Ctrl + Enter** and choose **Open Currency Converter**. You can also run **Currency Converter** and type there (for example `100 usd to eur`).
+3. Press **Enter** on a result in the extension to copy the converted amount to the clipboard.
 4. Open the details pane on a selected result to see the unit rate, inverse rate, and last update time.
 
 ![Conversion with details](screenshots/conversion.png)
@@ -71,13 +71,21 @@ $100 to eur
 
 Conversion titles always show both source and target (for example `2 USD → 1.86 EUR`). Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
 
+On the Command Palette home list, a matching query shows one live conversion (the converted amount, not a loading ellipsis) with the subtitle **Currency Converter**:
+
+- `300` or `10*30` — local currency → first Quick Conversion currency
+- `300 cny` — that currency → local (or first Quick Conversion currency if it is already local)
+- `300 cny to eur` — that pair
+
+If local and first Quick Conversion currency are the same, a number-only query still appears as **Convert "300" with Currency Converter** so you can open the extension. Network or API errors on the home list use that same title by default (**Suppress fallback warnings**); turn the setting off to see the error instead. When a live conversion is shown, **Enter** copies the amount and **Ctrl + Enter** opens Currency Converter.
+
 ### Crypto and other currencies
 
 Convert between fiat and cryptocurrencies in either direction. See the [full list of supported currencies](https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json).
 
 ```
 1 btc to usd
-1209 btc to usd
+1000 usd to btc
 ```
 
 ![Crypto conversion](screenshots/conversion-crypto.png)
@@ -103,33 +111,26 @@ Type a math expression and the extension evaluates it with BODMAS/PEMDAS before 
 
 ![Math expression conversion](screenshots/conversion-math.png)
 
-## Pins, Today's rates & dock
+## Pins & dock
 
-### Today's rates
+Pin conversions you check often. They stay at the top of Currency Converter (when the search box is empty) and also appear on the Command Palette dock.
 
-Open **Today's rates** from the main page (when the search box is empty) to see live conversions of `1` unit of your local currency into each of your other currencies from Settings.
+### Pin a conversion
 
-If your local currency matches every currency in the other-currencies list, a warning is shown instead of the default rates — press **Enter** on it to open Settings and add a different currency.
+1. Search a conversion, for example `34 btc to aed`.
+2. Open the context menu (`Ctrl + Enter`) and choose **Pin**.
+3. Open Currency Converter again with an empty search — your pins load at the top with live rates.
 
-![Today's rates](screenshots/todays-rates.png)
+Pins briefly show **Loading…**, then the live amount (or **Loading failed** if the request fails). **Enter** still copies the converted amount; use the context menu (`Ctrl + Enter`) to **Unpin**.
 
-### Pinning conversions
-
-Keep the pairs you check often at the top of Today's rates and on the dock.
-
-| Where                             | Pin                           | Unpin                         | Enter                       |
-| --------------------------------- | ----------------------------- | ----------------------------- | --------------------------- |
-| Main converter results            | Context menu (`Ctrl + Enter`) | Context menu (`Ctrl + Enter`) | Copies the converted amount |
-| Today's rates (search for a pair) | **Enter**                     | Context menu (`Ctrl + Enter`) | Pins the conversion         |
-
-Example: on Today's rates, search `34 btc to aed` and press **Enter** to pin it. Pinned conversions appear at the top with live rates the next time you open the page.
+![Pinned conversions](screenshots/pinned-conversions.png)
 
 ### Currency pins on the dock
 
-Pinned conversions also show up in the Command Palette **Currency pins** dock band — so your favorite rates are visible without opening the extension.
+The same pins show up in the Command Palette **Currency pins** dock band, so favorite rates are visible without opening the extension.
 
-- Press **Enter** on a dock pin to copy the converted amount
-- Use the context menu to **Refresh** rates for that pin's base currency, or **Unpin** it
+- **Enter** copies the converted amount
+- Context menu: **Refresh** rates for that pin's base currency, or **Unpin**
 - Dock rates refresh automatically on a new local calendar day, and whenever you change your pins
 
 ![Dock pins](screenshots/dock-pins.png)
@@ -151,16 +152,17 @@ Remove an alias by selecting it and pressing `Ctrl + Enter`, then confirming the
 
 ## Settings
 
-Open Settings from the Currency Converter command (context menu → Settings), or from the warning on Today's rates when your currency list needs attention.
+Open Settings from the Currency Converter command (context menu → Settings).
 
-| Setting                             | What it does                                                      |
-| ----------------------------------- | ----------------------------------------------------------------- |
-| **Quick Conversion Local Currency** | Base currency for number-only quick conversions and Today's rates |
-| **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)                    |
-| **Decimal format separator**        | System default, always dots, or always commas                     |
-| **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`)        |
-| **Conversion API**                  | Rate provider (see below)                                         |
-| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI                  |
+| Setting                             | What it does                                               |
+| ----------------------------------- | ---------------------------------------------------------- |
+| **Quick Conversion Local Currency** | Base currency for number-only quick conversions            |
+| **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)             |
+| **Decimal format separator**        | System default, always dots, or always commas              |
+| **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`) |
+| **Conversion API**                  | Rate provider (see below)                                  |
+| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI           |
+| **Suppress fallback warnings**      | On by default. Home-list conversion errors show **Convert "query" with Currency Converter** instead of a warning |
 
 ## Conversion API
 
@@ -172,13 +174,19 @@ This extension uses third-party APIs for the latest conversion rates:
    - Supports fiat and cryptocurrency conversions.
    - **Important:** Keep the default API unless you have a strong reason to switch. It updates daily and needs no extra setup.
 
-2. **[ExchangeRateAPI](https://www.exchangerate-api.com/)**
+2. **[Frankfurter](https://frankfurter.dev/)**
+   - Free, open-source exchange rates from central banks — no API key required.
+   - No request quotas (abuse rate limits may still apply).
+   - Does **not** support cryptocurrency conversions.
+   - Uses the public Frankfurter [v2 rates API](https://frankfurter.dev/).
+
+3. **[ExchangeRateAPI](https://www.exchangerate-api.com/)**
    - Updated frequently throughout the day ([pricing](https://www.exchangerate-api.com/#pricing)).
    - Free tier: 1,500 requests per month.
    - Does **not** support cryptocurrency conversions.
    - Requires an API key in Settings.
 
-3. **[CurrencyAPI](https://currencyapi.com)**
+4. **[CurrencyAPI](https://currencyapi.com)**
    - Updated frequently throughout the day ([pricing](https://currencyapi.com/pricing/)).
    - See their documentation for update frequency, pricing, and supported features.
    - Requires an API key in Settings.
@@ -188,3 +196,9 @@ None of these APIs are affiliated with this extension. To use a different rate p
 ## Privacy
 
 This extension has no analytics or telemetry. Settings, aliases, and pins stay on your device; exchange rates are fetched from the third-party API you select. See the [Privacy Policy](PRIVACY_POLICY.md) for details.
+
+## License
+
+This project is free software licensed under the [GNU General Public License v3.0 or later](LICENSE). You can use, modify, and sell it; if you distribute it, you must keep it open source under the GPL.
+
+A few files originally from Microsoft's Command Palette extension template remain under the MIT License (see the copyright headers in those files). MIT is compatible with GPL-3.0.

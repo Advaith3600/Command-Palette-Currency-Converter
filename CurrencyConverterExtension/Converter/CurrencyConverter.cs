@@ -70,50 +70,42 @@ internal sealed partial class CurrencyConverter : IDisposable
         string toCurrency,
         CancellationToken cancellationToken = default)
     {
-        List<(int index, Task<ConversionOutcome?> task)> conversionTasks = [];
-        int index = 0;
+        List<Task<ConversionOutcome?>> conversionTasks = [];
 
         if (string.IsNullOrEmpty(fromCurrency))
         {
             if (!string.IsNullOrEmpty(toCurrency))
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, toCurrency, cancellationToken)));
+                conversionTasks.Add(GetConversionAsync(amountToConvert, _settings.LocalCurrency, toCurrency, cancellationToken));
             }
             else
             {
                 foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken)));
+                    conversionTasks.Add(GetConversionAsync(amountToConvert, _settings.LocalCurrency, currency, cancellationToken));
                 }
 
                 foreach (string currency in _settings.Currencies)
                 {
-                    conversionTasks.Add((index++, GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken)));
+                    conversionTasks.Add(GetConversionAsync(amountToConvert, currency, _settings.LocalCurrency, cancellationToken));
                 }
             }
         }
         else if (string.IsNullOrEmpty(toCurrency))
         {
-            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken)));
+            conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, _settings.LocalCurrency, cancellationToken));
 
             foreach (string currency in _settings.Currencies)
             {
-                conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, currency, cancellationToken)));
+                conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, currency, cancellationToken));
             }
         }
         else
         {
-            conversionTasks.Add((index++, GetConversionAsync(amountToConvert, fromCurrency, toCurrency, cancellationToken)));
+            conversionTasks.Add(GetConversionAsync(amountToConvert, fromCurrency, toCurrency, cancellationToken));
         }
 
-        await Task.WhenAll(conversionTasks.Select(t => t.task)).ConfigureAwait(false);
-
-        var results = new ConversionOutcome?[conversionTasks.Count];
-        foreach (var task in conversionTasks)
-        {
-            results[task.index] = await task.task.ConfigureAwait(false);
-        }
-
+        ConversionOutcome?[] results = await Task.WhenAll(conversionTasks).ConfigureAwait(false);
         return results.Where(r => r != null).Select(r => r!).ToList();
     }
 
@@ -134,34 +126,7 @@ internal sealed partial class CurrencyConverter : IDisposable
         try
         {
             (decimal conversionRate, DateTime rateUpdatedAt) = await GetConversionRateAsync(fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
-            (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
-
-            string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
-            string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
-
-            string fromCode = fromCurrency.ToUpperInvariant();
-            string toCode = toCurrency.ToUpperInvariant();
-
-            ListItem item = new(CreateCopyCommand(toFormatted))
-            {
-                Title = $"{fromFormatted} {fromCode} → {toFormatted} {toCode}",
-                Subtitle = string.Empty,
-                Icon = IconManager.Icon,
-                Tags =
-                [
-                    new Tag(fromCode),
-                    new Tag(toCode),
-                ],
-                Details = CreateConversionDetails(
-                    fromFormatted,
-                    fromCode,
-                    toFormatted,
-                    toCode,
-                    conversionRate,
-                    rateUpdatedAt),
-            };
-
-            return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted, conversionRate, rateUpdatedAt);
+            return CreateSuccessOutcome(amountToConvert, fromCurrency, toCurrency, conversionRate, rateUpdatedAt);
         }
         catch (OperationCanceledException)
         {
@@ -209,6 +174,70 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
     }
 
+    /// <summary>
+    /// Formats a conversion from a fresh cached rate without touching the network.
+    /// </summary>
+    internal bool TryConvertFromCache(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        out ConversionOutcome? outcome)
+    {
+        outcome = null;
+        fromCurrency = GetCurrencyFromAlias(fromCurrency.ToLowerInvariant());
+        toCurrency = GetCurrencyFromAlias(toCurrency.ToLowerInvariant());
+
+        if (fromCurrency == toCurrency || string.IsNullOrEmpty(fromCurrency) || string.IsNullOrEmpty(toCurrency))
+        {
+            return false;
+        }
+
+        if (!TryGetFreshCachedRate((fromCurrency, toCurrency), out (decimal Rate, DateTime UpdatedAt) cached))
+        {
+            return false;
+        }
+
+        outcome = CreateSuccessOutcome(amountToConvert, fromCurrency, toCurrency, cached.Rate, cached.UpdatedAt);
+        return true;
+    }
+
+    private static ConversionOutcome CreateSuccessOutcome(
+        decimal amountToConvert,
+        string fromCurrency,
+        string toCurrency,
+        decimal conversionRate,
+        DateTime rateUpdatedAt)
+    {
+        (decimal convertedAmount, int precision) = CalculateConvertedAmount(amountToConvert, conversionRate);
+
+        string fromFormatted = amountToConvert.ToString("N", CultureInfo.CurrentCulture);
+        string toFormatted = (amountToConvert < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
+
+        string fromCode = fromCurrency.ToUpperInvariant();
+        string toCode = toCurrency.ToUpperInvariant();
+
+        ListItem item = new(CreateCopyCommand(toFormatted))
+        {
+            Title = $"{fromFormatted} {fromCode} → {toFormatted} {toCode}",
+            Subtitle = string.Empty,
+            Icon = CurrencyIconManager.For(toCurrency),
+            Tags =
+            [
+                new Tag(fromCode),
+                new Tag(toCode),
+            ],
+            Details = CreateConversionDetails(
+                fromFormatted,
+                fromCode,
+                toFormatted,
+                toCode,
+                conversionRate,
+                rateUpdatedAt),
+        };
+
+        return new ConversionOutcome(item, true, amountToConvert, fromCurrency, toCurrency, toFormatted, conversionRate, rateUpdatedAt);
+    }
+
     internal static CopyTextCommand CreateCopyCommand(string text) =>
         new(text)
         {
@@ -242,15 +271,10 @@ internal sealed partial class CurrencyConverter : IDisposable
         return new Details
         {
             Title = $"{toFormatted} {toCode}",
-            HeroImage = IconManager.Icon,
+            HeroImage = CurrencyIconManager.For(toCode),
             Body = $"**{fromFormatted} {fromCode}** → **{toFormatted} {toCode}**",
             Metadata =
             [
-                new DetailsElement
-                {
-                    Key = "Tags",
-                    Data = new DetailsTags { Tags = tags },
-                },
                 new DetailsElement
                 {
                     Key = "Unit rate",
@@ -260,6 +284,11 @@ internal sealed partial class CurrencyConverter : IDisposable
                 {
                     Key = "Inverse rate",
                     Data = new DetailsLink { Text = $"1 {toCode} = {inverseRate} {fromCode}" },
+                },
+                new DetailsElement
+                {
+                    Key = "Tags",
+                    Data = new DetailsTags { Tags = tags },
                 },
                 new DetailsElement
                 {
@@ -327,35 +356,6 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
     }
 
-    /// <summary>
-    /// Removes cache entries fetched before <paramref name="today"/> (local calendar day),
-    /// leaving same-day entries intact.
-    /// </summary>
-    internal void InvalidateCacheFromPreviousDays(DateOnly today)
-    {
-        List<(string From, string To)> toRemove = [];
-
-        foreach (KeyValuePair<(string From, string To), (decimal Rate, DateTime Timestamp)> kvp in _conversionCache)
-        {
-            DateOnly fetchedDay = DateOnly.FromDateTime(kvp.Value.Timestamp.ToLocalTime());
-            if (fetchedDay < today)
-            {
-                toRemove.Add(kvp.Key);
-            }
-        }
-
-        foreach ((string From, string To) key in toRemove)
-        {
-            _conversionCache.TryRemove(key, out _);
-        }
-    }
-
-    /// <summary>Test helper: insert a cache entry with an explicit timestamp.</summary>
-    internal void SeedCacheEntry(string fromCurrency, string toCurrency, decimal rate, DateTime timestampUtc)
-    {
-        _conversionCache[(fromCurrency.ToLowerInvariant(), toCurrency.ToLowerInvariant())] = (rate, timestampUtc);
-    }
-
     private async Task<(decimal Rate, DateTime UpdatedAt)> GetConversionRateAsync(
         string fromCurrency,
         string toCurrency,
@@ -366,6 +366,13 @@ internal sealed partial class CurrencyConverter : IDisposable
         if (TryGetFreshCachedRate(cacheKey, out var cached))
         {
             return cached;
+        }
+
+        // A successful populate stores every target for this base. A missing
+        // pair after that is invalid — do not fetch the same JSON again.
+        if (HasFreshRatesForBase(fromCurrency))
+        {
+            throw new InvalidOperationException($"{toCurrency.ToUpperInvariant()} is not a valid currency");
         }
 
         // Coalesce concurrent misses for the same base currency into one HTTP fetch.
@@ -417,6 +424,21 @@ internal sealed partial class CurrencyConverter : IDisposable
         }
 
         cached = default;
+        return false;
+    }
+
+    private bool HasFreshRatesForBase(string fromCurrency)
+    {
+        DateTime minTimestamp = DateTime.UtcNow.AddHours(-_settings.ConversionCacheDuration);
+        foreach (KeyValuePair<(string From, string To), (decimal Rate, DateTime Timestamp)> entry in _conversionCache)
+        {
+            if (string.Equals(entry.Key.From, fromCurrency, StringComparison.OrdinalIgnoreCase)
+                && entry.Value.Timestamp > minTimestamp)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -520,6 +542,8 @@ internal sealed partial class CurrencyConverter : IDisposable
     }
 
     internal void ValidateConversionAPI() => _converterSettings.ValidateConversionAPI();
+
+    internal string GetHelperLink() => _converterSettings.GetHelperLink();
 
     public void Dispose()
     {

@@ -156,11 +156,20 @@
   <data name="exchange_rate_api" xml:space="preserve">
     <value>ExchangeRateAPI</value>
   </data>
+  <data name="frankfurter_api" xml:space="preserve">
+    <value>Frankfurter</value>
+  </data>
   <data name="local_currency" xml:space="preserve">
     <value>Quick Conversion Local Currency</value>
   </data>
   <data name="local_currency_description" xml:space="preserve">
     <value>Set your local currency for quick conversion</value>
+  </data>
+  <data name="suppress_fallback_warnings" xml:space="preserve">
+    <value>Suppress fallback warnings</value>
+  </data>
+  <data name="suppress_fallback_warnings_description" xml:space="preserve">
+    <value>When a home-list conversion fails, show Convert "query" with Currency Converter instead of an error. Only applies to queries that look like a conversion.</value>
   </data>
   <data name="use_commas" xml:space="preserve">
     <value>Always use commas for decimals</value>

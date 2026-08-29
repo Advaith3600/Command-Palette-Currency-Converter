@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace CurrencyConverterExtension.Helpers;
 
 /// <summary>
-/// Shared debounce + convert pipeline for the main converter and Today's rates search boxes.
+/// Shared debounce + convert pipeline for the main converter search box.
 /// </summary>
 internal sealed partial class ConversionSearchController : IDisposable
 {

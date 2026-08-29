@@ -178,6 +178,15 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Frankfurter.
+        /// </summary>
+        internal static string frankfurter_api {
+            get {
+                return ResourceManager.GetString("frankfurter_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Quick Conversion Local Currency.
         /// </summary>
         internal static string local_currency {
@@ -192,6 +201,24 @@ namespace CurrencyConverterExtension.Properties {
         internal static string local_currency_description {
             get {
                 return ResourceManager.GetString("local_currency_description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Suppress fallback warnings.
+        /// </summary>
+        internal static string suppress_fallback_warnings {
+            get {
+                return ResourceManager.GetString("suppress_fallback_warnings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When a home-list conversion fails, show Convert "query" with Currency Converter instead of an error. Only applies to queries that look like a conversion.
+        /// </summary>
+        internal static string suppress_fallback_warnings_description {
+            get {
+                return ResourceManager.GetString("suppress_fallback_warnings_description", resourceCulture);
             }
         }
         

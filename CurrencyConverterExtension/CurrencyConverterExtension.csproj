@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <Content Include="alias.default.json" />
+    <Content Include="Assets\Flags\*.webp" />
+    <Content Include="Assets\Crypto\*.webp" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\WarningIcon.png" />
     <Content Include="Assets\LargeTile.png" />

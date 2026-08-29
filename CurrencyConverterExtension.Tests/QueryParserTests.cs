@@ -35,6 +35,28 @@ public class QueryParserTests
     }
 
     [Fact]
+    public void Parse_AmountOnly_LeavesCurrenciesEmpty()
+    {
+        QueryParseResult result = QueryParser.Parse("300", decimalSeparatorMode: 1);
+
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal(300m, result.Query!.Value.Amount);
+        Assert.Equal("", result.Query.Value.FromCurrency);
+        Assert.Equal("", result.Query.Value.ToCurrency);
+    }
+
+    [Fact]
+    public void Parse_MathAmountOnly_EvaluatesExpression()
+    {
+        QueryParseResult result = QueryParser.Parse("10*30", decimalSeparatorMode: 1);
+
+        Assert.Equal(QueryParseStatus.Success, result.Status);
+        Assert.Equal(300m, result.Query!.Value.Amount);
+        Assert.Equal("", result.Query.Value.FromCurrency);
+        Assert.Equal("", result.Query.Value.ToCurrency);
+    }
+
+    [Fact]
     public void Parse_MathInAmount_EvaluatesExpression()
     {
         QueryParseResult result = QueryParser.Parse("100+20 usd to inr", decimalSeparatorMode: 1);
@@ -57,6 +79,14 @@ public class QueryParserTests
     public void Parse_TrailingJunk_ReturnsNoMatch()
     {
         QueryParseResult result = QueryParser.Parse("100 usd to inr extra", decimalSeparatorMode: 1);
+
+        Assert.Equal(QueryParseStatus.NoMatch, result.Status);
+    }
+
+    [Fact]
+    public void Parse_UnrelatedText_ReturnsNoMatch()
+    {
+        QueryParseResult result = QueryParser.Parse("sdkjaf", decimalSeparatorMode: 1);
 
         Assert.Equal(QueryParseStatus.NoMatch, result.Status);
     }
