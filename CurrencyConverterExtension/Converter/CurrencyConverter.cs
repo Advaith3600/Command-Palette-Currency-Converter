@@ -368,6 +368,11 @@ internal sealed partial class CurrencyConverter : IDisposable
             return cached;
         }
 
+        if (_settings.ConversionAPI == (int)ConverterSettingsApi.TwelveData)
+        {
+            return await GetTwelveDataRateAsync(fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
+        }
+
         // A successful populate stores every target for this base. A missing
         // pair after that is invalid — do not fetch the same JSON again.
         if (HasFreshRatesForBase(fromCurrency))
@@ -540,6 +545,40 @@ internal sealed partial class CurrencyConverter : IDisposable
 
         return (convertedAmount, precision);
     }
+
+    // ==================== Twelve Data BEGIN ====================
+    // Pair-based response parsing only; common validation, URL construction,
+    // HTTP/fallback handling and cache storage are reused.
+    // Remove this block plus the dispatch in GetConversionRateAsync to remove the provider.
+    private async Task<(decimal Rate, DateTime UpdatedAt)> GetTwelveDataRateAsync(
+        string fromCurrency,
+        string toCurrency,
+        CancellationToken cancellationToken)
+    {
+        _converterSettings.ValidateConversionAPI();
+
+        string targetCurrency = toCurrency.ToUpperInvariant();
+        string url = _converterSettings.GetConversionLink(fromCurrency, targetCurrency);
+        using HttpResponseMessage response = await GetWithFallbackAsync(
+            url,
+            fromCurrency,
+            targetCurrency,
+            cancellationToken).ConfigureAwait(false);
+
+        string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using JsonDocument doc = JsonDocument.Parse(content);
+
+        if (!doc.RootElement.TryGetProperty("rate", out JsonElement rateElement)
+            || !rateElement.TryGetDecimal(out decimal rate))
+        {
+            throw new InvalidOperationException("Invalid Twelve Data response: missing 'rate'.");
+        }
+
+        DateTime fetchedAt = DateTime.UtcNow;
+        _conversionCache[(fromCurrency, toCurrency)] = (rate, fetchedAt);
+        return (rate, fetchedAt);
+    }
+    // ===================== Twelve Data END =====================
 
     internal void ValidateConversionAPI() => _converterSettings.ValidateConversionAPI();
 

@@ -161,7 +161,7 @@ Open Settings from the Currency Converter command (context menu → Settings).
 | **Decimal format separator**        | System default, always dots, or always commas              |
 | **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`) |
 | **Conversion API**                  | Rate provider (see below)                                  |
-| **Conversion API Key**              | Required only for ExchangeRateAPI or CurrencyAPI           |
+| **Conversion API Key**              | Required for ExchangeRateAPI, CurrencyAPI, or Twelve Data   |
 | **Suppress fallback warnings**      | On by default. Home-list conversion errors show **Convert "query" with Currency Converter** instead of a warning |
 
 ## Conversion API
@@ -189,6 +189,11 @@ This extension uses third-party APIs for the latest conversion rates:
 4. **[CurrencyAPI](https://currencyapi.com)**
    - Updated frequently throughout the day ([pricing](https://currencyapi.com/pricing/)).
    - See their documentation for update frequency, pricing, and supported features.
+   - Requires an API key in Settings.
+
+5. **[Twelve Data](https://twelvedata.com/)**
+   - Provides real-time exchange rates for supported forex and cryptocurrency pairs.
+   - Free tier: 8 API credits per minute, up to 800 per day ([pricing](https://twelvedata.com/pricing)).
    - Requires an API key in Settings.
 
 None of these APIs are affiliated with this extension. To use a different rate provider, or to suggest a new one, open a pull request.

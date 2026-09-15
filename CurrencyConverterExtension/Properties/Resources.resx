@@ -165,6 +165,9 @@
   <data name="local_currency_description" xml:space="preserve">
     <value>Set your local currency for quick conversion</value>
   </data>
+  <data name="twelve_data_api" xml:space="preserve">
+    <value>Twelve Data</value>
+  </data>
   <data name="suppress_fallback_warnings" xml:space="preserve">
     <value>Suppress fallback warnings</value>
   </data>

@@ -50,14 +50,26 @@ public class ConverterSettings
                 {"ConversionFallbackLink", "https://api.frankfurter.dev/v2/rates?base={from}"},
                 {"ConversionHelperLink", "https://api.frankfurter.dev/v2/currencies"},
             }
+        },
+        {
+            "TwelveData", new()
+            {
+                {"ConversionLink", "https://api.twelvedata.com/exchange_rate?symbol={from}/{to}&apikey={api_key}"},
+                {"ConversionFallbackLink", "https://api.twelvedata.com/exchange_rate?symbol={from}/{to}&apikey={api_key}"},
+                {"ConversionHelperLink", "https://twelvedata.com/docs"},
+            }
         }
     };
 
     private bool UsesUppercaseCurrencyCodes =>
-        _settings.ConversionAPI is (int)ConverterSettingsApi.CurrencyAPI or (int)ConverterSettingsApi.Frankfurter;
+        _settings.ConversionAPI is (int)ConverterSettingsApi.CurrencyAPI
+            or (int)ConverterSettingsApi.Frankfurter
+            or (int)ConverterSettingsApi.TwelveData;
 
     private bool RequiresApiKey =>
-        _settings.ConversionAPI is (int)ConverterSettingsApi.ExchangeRateAPI or (int)ConverterSettingsApi.CurrencyAPI;
+        _settings.ConversionAPI is (int)ConverterSettingsApi.ExchangeRateAPI
+            or (int)ConverterSettingsApi.CurrencyAPI
+            or (int)ConverterSettingsApi.TwelveData;
 
     private string ParseLink(string link, string from, string to) => link
         .Replace("{api_key}", _settings.ConversionAPIKey)
@@ -181,4 +193,5 @@ public enum ConverterSettingsApi
     ExchangeRateAPI,
     CurrencyAPI,
     Frankfurter,
+    TwelveData,
 }

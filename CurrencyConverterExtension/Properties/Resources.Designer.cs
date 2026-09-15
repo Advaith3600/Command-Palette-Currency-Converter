@@ -205,6 +205,15 @@ namespace CurrencyConverterExtension.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Twelve Data.
+        /// </summary>
+        internal static string twelve_data_api {
+            get {
+                return ResourceManager.GetString("twelve_data_api", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Suppress fallback warnings.
         /// </summary>
         internal static string suppress_fallback_warnings {
