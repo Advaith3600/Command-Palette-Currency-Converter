@@ -26,6 +26,12 @@ internal static class ConversionResultItemFactory
         Action onPinsChanged,
         bool treatAsPinned = false)
     {
+        // A pin would freeze a mixed total as one amount in one currency; leave it unpinnable.
+        if (outcome.IsComposite)
+        {
+            return outcome.Item;
+        }
+
         PinnedConversion pin = new(outcome.Amount, outcome.FromCurrency, outcome.ToCurrency);
         string fromCode = string.IsNullOrEmpty(outcome.FromCurrency)
             ? string.Empty

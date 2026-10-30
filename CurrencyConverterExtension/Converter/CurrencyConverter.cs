@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,8 @@ internal sealed record ConversionOutcome(
     string ToCurrency,
     string ToFormatted,
     decimal Rate = 0m,
-    DateTime RateUpdatedAt = default);
+    DateTime RateUpdatedAt = default,
+    bool IsComposite = false);
 
 internal class CaseInsensitiveTupleComparer : IEqualityComparer<(string From, string To)>
 {
@@ -109,6 +111,180 @@ internal sealed partial class CurrencyConverter : IDisposable
         return results.Where(r => r != null).Select(r => r!).ToList();
     }
 
+    /// <summary>
+    /// Converts a parsed query. A mixed query ("200 aed + 20 usd") is totalled directly in
+    /// each target: the explicit one, else the local currency and every global currency.
+    /// </summary>
+    public async Task<List<ConversionOutcome>> GetConversionOutcomesAsync(
+        ParsedQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        if (!query.IsMixed)
+        {
+            return await GetConversionOutcomesAsync(query.Amount, query.FromCurrency, query.ToCurrency, cancellationToken).ConfigureAwait(false);
+        }
+
+        string[] targets = string.IsNullOrEmpty(query.ToCurrency)
+            ? [_settings.LocalCurrency, .. _settings.Currencies]
+            : [query.ToCurrency];
+
+        List<Task<ConversionOutcome?>> conversionTasks = [.. targets
+            .Select(t => GetCurrencyFromAlias(t.ToLowerInvariant()))
+            .Where(t => !string.IsNullOrEmpty(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(t => GetMixedConversionAsync(query.Components, t, cancellationToken))];
+
+        ConversionOutcome?[] results = await Task.WhenAll(conversionTasks).ConfigureAwait(false);
+        return results.Where(r => r != null).Select(r => r!).ToList();
+    }
+
+    private async Task<ConversionOutcome?> GetMixedConversionAsync(
+        IReadOnlyList<CurrencyAmount> components,
+        string toCurrency,
+        CancellationToken cancellationToken)
+    {
+        List<CurrencyAmount> parts = ResolveComponents(components);
+
+        try
+        {
+            (decimal Rate, DateTime UpdatedAt)[] rates = await Task.WhenAll(parts.Select(p =>
+                p.Currency == toCurrency
+                    ? Task.FromResult((1m, default(DateTime)))
+                    : GetConversionRateAsync(p.Currency, toCurrency, cancellationToken))).ConfigureAwait(false);
+
+            return CreateCompositeOutcome(parts, toCurrency, rates);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return CreateFailureOutcome(e, 0m, parts[0].Currency, toCurrency);
+        }
+    }
+
+    /// <summary>Totals a mixed query from fresh cached rates only; false on any miss.</summary>
+    internal bool TryConvertFromCache(ParsedQuery query, out ConversionOutcome? outcome)
+    {
+        if (!query.IsMixed)
+        {
+            return TryConvertFromCache(query.Amount, query.FromCurrency, query.ToCurrency, out outcome);
+        }
+
+        outcome = null;
+        string toCurrency = GetCurrencyFromAlias(query.ToCurrency.ToLowerInvariant());
+        if (string.IsNullOrEmpty(toCurrency))
+        {
+            return false;
+        }
+
+        List<CurrencyAmount> parts = ResolveComponents(query.Components);
+        (decimal Rate, DateTime UpdatedAt)[] rates = new (decimal, DateTime)[parts.Count];
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (parts[i].Currency == toCurrency)
+            {
+                rates[i] = (1m, default);
+            }
+            else if (!TryGetFreshCachedRate((parts[i].Currency, toCurrency), out rates[i]))
+            {
+                return false;
+            }
+        }
+
+        outcome = CreateCompositeOutcome(parts, toCurrency, rates);
+        return true;
+    }
+
+    // An untagged part of a mixed query ("200 aed + 5 + 20 usd") is in the local currency.
+    private List<CurrencyAmount> ResolveComponents(IReadOnlyList<CurrencyAmount> components) =>
+        [.. components.Select(c => c with
+        {
+            Currency = GetCurrencyFromAlias((string.IsNullOrEmpty(c.Currency) ? _settings.LocalCurrency : c.Currency).ToLowerInvariant()),
+        })];
+
+    private static ConversionOutcome CreateCompositeOutcome(
+        List<CurrencyAmount> parts,
+        string toCurrency,
+        (decimal Rate, DateTime UpdatedAt)[] rates)
+    {
+        decimal total = 0m;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            total += parts[i].Amount * rates[i].Rate;
+        }
+
+        (decimal convertedAmount, int precision) = CalculateConvertedAmount(total, 1m);
+        string toFormatted = (total < 0 ? convertedAmount * -1 : convertedAmount).ToString($"N{precision}", CultureInfo.CurrentCulture);
+        string toCode = toCurrency.ToUpperInvariant();
+        string sourceFormatted = FormatComponents(parts);
+
+        // The oldest rate is the one that limits how current the total is.
+        DateTime[] updatedAt = [.. rates.Select(r => r.UpdatedAt).Where(t => t != default)];
+        DateTime rateUpdatedAt = updatedAt.Length == 0 ? default : updatedAt.Min();
+
+        List<DetailsElement> metadata = [];
+        foreach (string code in parts.Select(p => p.Currency).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.Equals(code, toCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            decimal rate = rates[parts.FindIndex(p => p.Currency == code)].Rate;
+            metadata.Add(new DetailsElement
+            {
+                Key = $"{code.ToUpperInvariant()} rate",
+                Data = new DetailsLink { Text = $"1 {code.ToUpperInvariant()} = {FormatRate(rate)} {toCode}" },
+            });
+        }
+
+        metadata.Add(new DetailsElement
+        {
+            Key = "Updated at",
+            Data = new DetailsLink { Text = FormatRateUpdatedAt(rateUpdatedAt) },
+        });
+
+        ListItem item = new(CreateCopyCommand(toFormatted))
+        {
+            Title = $"{sourceFormatted} → {toFormatted} {toCode}",
+            Subtitle = string.Empty,
+            Icon = CurrencyIconManager.For(toCurrency),
+            Tags =
+            [
+                .. parts.Select(p => p.Currency.ToUpperInvariant()).Distinct().Select(c => new Tag(c)),
+                new Tag(toCode),
+            ],
+            Details = new Details
+            {
+                Title = $"{toFormatted} {toCode}",
+                HeroImage = CurrencyIconManager.For(toCode),
+                Body = $"**{sourceFormatted}** → **{toFormatted} {toCode}**",
+                Metadata = [.. metadata],
+            },
+        };
+
+        return new ConversionOutcome(item, true, total, parts[0].Currency, toCurrency, toFormatted, 0m, rateUpdatedAt, IsComposite: true);
+    }
+
+    /// <summary>"200 AED + 20 USD - 5 EUR".</summary>
+    internal static string FormatComponents(IReadOnlyList<CurrencyAmount> parts)
+    {
+        StringBuilder sb = new();
+        for (int i = 0; i < parts.Count; i++)
+        {
+            decimal amount = parts[i].Amount;
+            if (i > 0)
+            {
+                sb.Append(amount < 0 ? " - " : " + ");
+                amount = Math.Abs(amount);
+            }
+
+            sb.Append(amount.ToString("N", CultureInfo.CurrentCulture))
+                .Append(' ')
+                .Append(parts[i].Currency.ToUpperInvariant());
+        }
+
+        return sb.ToString();
+    }
+
     private async Task<ConversionOutcome?> GetConversionAsync(
         decimal amountToConvert,
         string fromCurrency,
@@ -128,50 +304,29 @@ internal sealed partial class CurrencyConverter : IDisposable
             (decimal conversionRate, DateTime rateUpdatedAt) = await GetConversionRateAsync(fromCurrency, toCurrency, cancellationToken).ConfigureAwait(false);
             return CreateSuccessOutcome(amountToConvert, fromCurrency, toCurrency, conversionRate, rateUpdatedAt);
         }
-        catch (OperationCanceledException)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
-            throw;
+            return CreateFailureOutcome(e, amountToConvert, fromCurrency, toCurrency);
         }
-        catch (HttpRequestException)
+    }
+
+    private ConversionOutcome CreateFailureOutcome(Exception e, decimal amountToConvert, string fromCurrency, string toCurrency)
+    {
+        string title = e switch
         {
-            return new ConversionOutcome(
-                CreateErrorItem("Unable to reach the conversion service", "Press enter or click to open the currencies list"),
-                false,
-                amountToConvert,
-                fromCurrency,
-                toCurrency,
-                string.Empty);
-        }
-        catch (JsonException)
-        {
-            return new ConversionOutcome(
-                CreateErrorItem("Received an invalid response from the conversion service", "Press enter or click to open the currencies list"),
-                false,
-                amountToConvert,
-                fromCurrency,
-                toCurrency,
-                string.Empty);
-        }
-        catch (InvalidOperationException e)
-        {
-            return new ConversionOutcome(
-                CreateErrorItem(e.Message, "Press enter or click to open the currencies list"),
-                false,
-                amountToConvert,
-                fromCurrency,
-                toCurrency,
-                string.Empty);
-        }
-        catch (Exception)
-        {
-            return new ConversionOutcome(
-                CreateErrorItem("Something went wrong while converting currencies", "Press enter or click to open the currencies list"),
-                false,
-                amountToConvert,
-                fromCurrency,
-                toCurrency,
-                string.Empty);
-        }
+            HttpRequestException => "Unable to reach the conversion service",
+            JsonException => "Received an invalid response from the conversion service",
+            InvalidOperationException => e.Message,
+            _ => "Something went wrong while converting currencies",
+        };
+
+        return new ConversionOutcome(
+            CreateErrorItem(title, "Press enter or click to open the currencies list"),
+            false,
+            amountToConvert,
+            fromCurrency,
+            toCurrency,
+            string.Empty);
     }
 
     /// <summary>

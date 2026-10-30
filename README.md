@@ -15,7 +15,8 @@ Convert fiat and crypto currencies without leaving [Command Palette](https://lea
 
 - **Natural language** — codes, symbols, and mixed styles all work (`100 inr to usd`, `$100 to €`, `₽100`)
 - **Fiat and crypto** — convert in either direction with the free default API
-- **Math built in** — evaluate expressions with BODMAS/PEMDAS, then convert
+- **Math built in** — evaluate expressions with BODMAS/PEMDAS, mix currencies (`200 aed + 20 usd`), then convert
+- **Shorthands in many languages** — `5k`, `1.5m`, `2 crore`, `5万円`, `3 Mio.`
 - **Pins + dock** — save conversions and see live amounts on the Command Palette dock
 - **Details at a glance** — unit rate, inverse rate, and when the rate was last updated
 - **Aliases** — rich built-in currency symbols, plus your own custom aliases
@@ -110,6 +111,45 @@ Type a math expression and the extension evaluates it with BODMAS/PEMDAS before 
 ```
 
 ![Math expression conversion](screenshots/conversion-math.png)
+
+### Mixing currencies
+
+Add or subtract amounts in different currencies and get the total in one currency. With no target, the total is shown in your local currency and every Quick Conversion currency:
+
+```
+200 aed + 20 usd to eur
+$100 - €20
+2 * 10 usd + 5 eur in inr
+```
+
+Once more than one currency appears, a bare number is in your local currency: in `200 aed + 5 + 20 usd`, the `5` is 5 of your local currency. Use brackets to apply a currency to a whole calculation: `200 aed + (5 + 20) usd` adds 25 USD. Money can be multiplied or divided by plain numbers, but not by other money. Mixed totals can't be pinned, because a pin stores a single amount in a single currency.
+
+### Large-number shorthands
+
+Write big amounts the way you'd say them. A unit can touch the number or follow it after a space, and works anywhere a number does, including inside expressions (`2k + 500 usd`):
+
+| Language | Units |
+|---|---|
+| English | `k` thousand, `m` / `mn` / `mil` million, `b` / `bn` billion, `t` / `tn` trillion, and the full words |
+| Indian | `lac` / `lakh` (10⁵), `cr` / `crore` (10⁷), `हज़ार`, `लाख`, `करोड़` |
+| Chinese / Japanese | `千` 10³, `万` / `萬` 10⁴, `亿` / `億` 10⁸, `兆` 10¹² |
+| Korean | `천`, `만`, `억`, `조` |
+| German / Italian / Dutch / French | `Tsd.`, `Mio.`, `Mln`, `Mrd.`, `Mld`, `Md`, `Bio.` (10¹²) |
+| Portuguese | `mi`, `bi`, `tri` |
+| Russian / Ukrainian | `тыс.` / `тис.`, `млн`, `млрд`, `трлн` |
+| Arabic | `ألف`, `مليون`, `مليار`, `تريليون` |
+
+```
+5k usd to eur
+1.5m jpy
+5万円 to usd
+2 crore inr
+3 Mio. € in usd
+```
+
+All units are active whatever your Windows language is. A Latin or Cyrillic unit only counts when no letter follows it, so currency codes written right after the number still work (`5mxn` is 5 MXN, not 5 million "xn"). `l` stays the Honduran lempira alias.
+
+Two units change meaning with your Windows regional format language. `mil` is a million, or a thousand when that language is Spanish. `bn` is a billion (10⁹), or 10¹² when it is French.
 
 ## Pins & dock
 

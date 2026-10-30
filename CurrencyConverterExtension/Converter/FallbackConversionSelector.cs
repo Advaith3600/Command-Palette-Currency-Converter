@@ -25,6 +25,15 @@ internal static class FallbackConversionSelector
         string selectedFrom;
         string selectedTo;
 
+        if (query.IsMixed)
+        {
+            // A mixed total is meaningful in any currency, including one of its parts.
+            selectedTo = !string.IsNullOrEmpty(to) ? to
+                : !string.IsNullOrEmpty(local) ? local
+                : firstGlobal;
+            return string.IsNullOrEmpty(selectedTo) ? null : new FallbackConversionPair(from, selectedTo);
+        }
+
         if (!string.IsNullOrEmpty(from) && !string.IsNullOrEmpty(to))
         {
             selectedFrom = from;

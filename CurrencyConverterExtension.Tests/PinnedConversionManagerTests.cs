@@ -1,3 +1,4 @@
+using CurrencyConverterExtension.Converter;
 using CurrencyConverterExtension.Helpers;
 
 namespace CurrencyConverterExtension.Tests;
@@ -99,5 +100,18 @@ public class PinnedConversionManagerTests
 
         Assert.Equal(a, b);
         Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void ResultItem_CompositeOutcome_HasNoPinCommand()
+    {
+        var manager = new PinnedConversionManager([]);
+        var item = new Microsoft.CommandPalette.Extensions.Toolkit.ListItem(new Microsoft.CommandPalette.Extensions.Toolkit.NoOpCommand()) { Title = "composite" };
+        var outcome = new ConversionOutcome(item, true, 1m, "usd", "inr", "1", IsComposite: true);
+
+        var result = ConversionResultItemFactory.Create(outcome, manager, () => { });
+
+        Assert.Same(item, result);
+        Assert.Empty(result.MoreCommands);
     }
 }

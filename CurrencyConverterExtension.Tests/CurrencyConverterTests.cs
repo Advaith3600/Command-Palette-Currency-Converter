@@ -426,6 +426,89 @@ public class CurrencyConverterTests
         Assert.Equal(3, requests);
     }
 
+    private static ParsedQuery ParseQuery(string search) => QueryParser.Parse(search, decimalSeparatorMode: 1).Query!.Value;
+
+    [Fact]
+    public async Task GetConversionOutcomes_MixedQuery_TotalsInTarget()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        using var converter = CreateConverter();
+
+        var results = await converter.GetConversionOutcomesAsync(ParseQuery("100 usd + 10 eur to inr"), TestContext.Current.CancellationToken);
+
+        ConversionOutcome outcome = Assert.Single(results);
+        Assert.True(outcome.IsSuccess);
+        Assert.True(outcome.IsComposite);
+        Assert.Equal("8,880.00", outcome.ToFormatted);
+        Assert.Equal($"{100m:N} USD + {10m:N} EUR → 8,880.00 INR", outcome.Item.Title);
+    }
+
+    [Fact]
+    public async Task GetConversionOutcomes_MixedQuery_TargetMatchingAComponentUsesUnitRate()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        using var converter = CreateConverter();
+
+        var results = await converter.GetConversionOutcomesAsync(ParseQuery("$100 - 10 euro to usd"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("89.00", Assert.Single(results).ToFormatted);
+    }
+
+    [Fact]
+    public async Task GetConversionOutcomes_MixedQueryWithoutTarget_UsesLocalAndGlobals()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        using var converter = CreateConverter(new FakeConversionSettings { LocalCurrency = "usd", Currencies = ["eur", "inr"] });
+
+        var results = await converter.GetConversionOutcomesAsync(ParseQuery("100 usd + 10 eur"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["usd", "eur", "inr"], results.Select(r => r.ToCurrency));
+        Assert.All(results, r => Assert.True(r.IsComposite));
+    }
+
+    [Fact]
+    public async Task GetConversionOutcomes_MixedQueryWithUnknownCurrency_ReturnsFailure()
+    {
+        using var converter = CreateConverter();
+
+        var results = await converter.GetConversionOutcomesAsync(ParseQuery("100 usd + 10 zzz to inr"), TestContext.Current.CancellationToken);
+
+        ConversionOutcome outcome = Assert.Single(results);
+        Assert.False(outcome.IsSuccess);
+        Assert.Contains("ZZZ", outcome.Item.Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TryConvertFromCache_MixedQuery_HitsOnlyWhenEveryRateIsCached()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        var handler = CreateDefaultHandler();
+        using var converter = CreateConverter(handler: handler);
+        ParsedQuery query = ParseQuery("100 usd + 10 eur to inr");
+
+        Assert.False(converter.TryConvertFromCache(query, out _));
+
+        _ = await converter.GetConversionOutcomesAsync(100m, "usd", "inr", TestContext.Current.CancellationToken);
+        Assert.False(converter.TryConvertFromCache(query, out _));
+
+        _ = await converter.GetConversionOutcomesAsync(query, TestContext.Current.CancellationToken);
+        int requests = handler.RequestCount;
+
+        Assert.True(converter.TryConvertFromCache(query, out ConversionOutcome? cached));
+        Assert.Equal("8,880.00", cached!.ToFormatted);
+        Assert.Equal(requests, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetConversionOutcomes_MixedQueryWithBareAmount_UsesLocalCurrency()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        using var converter = CreateConverter(new FakeConversionSettings { LocalCurrency = "usd" });
+
+        var results = await converter.GetConversionOutcomesAsync(ParseQuery("100 usd + 10 + 10 eur to inr"), TestContext.Current.CancellationToken);
+
+        ConversionOutcome outcome = Assert.Single(results);
+        Assert.Equal("9,680.00", outcome.ToFormatted);
+        Assert.Equal($"{100m:N} USD + {10m:N} USD + {10m:N} EUR \u2192 9,680.00 INR", outcome.Item.Title);
+    }
 }
-
-

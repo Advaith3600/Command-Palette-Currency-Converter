@@ -94,7 +94,7 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
         }
 
         if (pair is { } selected
-            && _converter.TryConvertFromCache(parsed.Amount, selected.FromCurrency, selected.ToCurrency, out ConversionOutcome? cached)
+            && _converter.TryConvertFromCache(WithPair(parsed, selected), out ConversionOutcome? cached)
             && cached is { IsSuccess: true })
         {
             CancelPendingWork();
@@ -138,8 +138,8 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
                 return;
             }
 
-            FallbackConversionPair selected = pair.Value;
-            if (TryApplyCached(parsed.Amount, selected))
+            ParsedQuery selected = WithPair(parsed, pair.Value);
+            if (TryApplyCached(selected))
             {
                 return;
             }
@@ -150,7 +150,7 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
                 return;
             }
 
-            if (TryApplyCached(parsed.Amount, selected))
+            if (TryApplyCached(selected))
             {
                 return;
             }
@@ -169,11 +169,7 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
                 return;
             }
 
-            List<ConversionOutcome> outcomes = WaitFor(_converter.GetConversionOutcomesAsync(
-                parsed.Amount,
-                selected.FromCurrency,
-                selected.ToCurrency,
-                ct));
+            List<ConversionOutcome> outcomes = WaitFor(_converter.GetConversionOutcomesAsync(selected, ct));
             if (IsSuperseded(version, ct))
             {
                 return;
@@ -204,9 +200,12 @@ internal sealed partial class CurrencyConverterFallbackItem : FallbackCommandIte
         }
     }
 
-    private bool TryApplyCached(decimal amount, FallbackConversionPair pair)
+    private static ParsedQuery WithPair(ParsedQuery parsed, FallbackConversionPair pair) =>
+        parsed with { FromCurrency = pair.FromCurrency, ToCurrency = pair.ToCurrency };
+
+    private bool TryApplyCached(ParsedQuery query)
     {
-        if (_converter.TryConvertFromCache(amount, pair.FromCurrency, pair.ToCurrency, out ConversionOutcome? cached)
+        if (_converter.TryConvertFromCache(query, out ConversionOutcome? cached)
             && cached is { IsSuccess: true })
         {
             ApplyOutcome(cached);

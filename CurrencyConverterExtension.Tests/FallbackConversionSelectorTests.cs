@@ -124,4 +124,21 @@ public class FallbackConversionSelectorTests
 
         Assert.Null(pair);
     }
+
+    [Theory]
+    [InlineData("", "usd")]
+    [InlineData("inr", "inr")]
+    public void Mixed_TargetsExplicitOrLocalEvenWhenItIsAComponent(string to, string expectedTo)
+    {
+        ParsedQuery query = new(0m, "usd", to)
+        {
+            Components = new[] { new CurrencyAmount("usd", 10m), new CurrencyAmount("euro", 5m) },
+        };
+
+        FallbackConversionPair? pair = FallbackConversionSelector.TrySelect(query, "usd", ["eur"], Aliases());
+
+        Assert.NotNull(pair);
+        Assert.Equal("usd", pair.Value.FromCurrency);
+        Assert.Equal(expectedTo, pair.Value.ToCurrency);
+    }
 }

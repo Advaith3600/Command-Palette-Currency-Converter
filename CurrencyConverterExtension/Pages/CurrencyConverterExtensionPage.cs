@@ -439,11 +439,7 @@ internal sealed partial class CurrencyConverterExtensionPage : DynamicListPage, 
 
     private async Task<IListItem[]> BuildConversionItemsAsync(ParsedQuery query, CancellationToken cancellationToken)
     {
-        List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(
-            query.Amount,
-            query.FromCurrency,
-            query.ToCurrency,
-            cancellationToken).ConfigureAwait(false);
+        List<ConversionOutcome> outcomes = await _converter.GetConversionOutcomesAsync(query, cancellationToken).ConfigureAwait(false);
 
         return [.. outcomes
             .GroupBy(o => new { o.Item.Title, o.Item.Subtitle })
