@@ -259,6 +259,7 @@ internal sealed partial class CurrencyConverter : IDisposable
                 Body = $"**{sourceFormatted}** → **{toFormatted} {toCode}**",
                 Metadata = [.. metadata],
             },
+            MoreCommands = [CreateCopyPlainNumberItem(toFormatted)],
         };
 
         return new ConversionOutcome(item, true, total, parts[0].Currency, toCurrency, toFormatted, 0m, rateUpdatedAt, IsComposite: true);
@@ -402,6 +403,25 @@ internal sealed partial class CurrencyConverter : IDisposable
                 Result = CommandResult.Hide()
             })
         };
+
+    /// <summary>
+    /// Copies the amount without group separators ("1234,56"), which spreadsheets and
+    /// calculators parse more reliably than "1.234,56".
+    /// </summary>
+    internal static CommandContextItem CreateCopyPlainNumberItem(string formatted)
+    {
+        // Command Palette makes the first menu item Ctrl+Enter and labels it with the command's
+        // name, so it must not read "Copy" like Enter does (mixed totals have no Pin to go first).
+        CopyTextCommand command = CreateCopyCommand(ToPlainNumber(formatted));
+        command.Name = "Copy plain number";
+        return new(command) { Title = "Copy plain number" };
+    }
+
+    internal static string ToPlainNumber(string formatted)
+    {
+        string groupSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberGroupSeparator;
+        return groupSeparator.Length == 0 ? formatted : formatted.Replace(groupSeparator, string.Empty, StringComparison.Ordinal);
+    }
 
     internal static Details CreateConversionDetails(
         string fromFormatted,
@@ -670,15 +690,8 @@ internal sealed partial class CurrencyConverter : IDisposable
             : new InvalidOperationException("Something went wrong while fetching the conversion rate");
     }
 
-    private string GetCurrencyFromAlias(string currency)
-    {
-        if (_aliasManager.HasAlias(currency))
-        {
-            return _aliasManager.GetAlias(currency) ?? currency;
-        }
-
-        return currency;
-    }
+    private string GetCurrencyFromAlias(string currency) =>
+        CurrencyNames.Resolve(currency, _aliasManager, _settings.LocalCurrency);
 
     internal static (decimal ConvertedAmount, int Precision) CalculateConvertedAmount(decimal amountToConvert, decimal conversionRate)
     {

@@ -17,10 +17,10 @@ internal static class FallbackConversionSelector
         IReadOnlyList<string> currencies,
         AliasManager aliases)
     {
-        string local = Resolve(localCurrency, aliases);
-        string firstGlobal = currencies.Count > 0 ? Resolve(currencies[0], aliases) : string.Empty;
-        string from = Resolve(query.FromCurrency, aliases);
-        string to = Resolve(query.ToCurrency, aliases);
+        string local = CurrencyNames.Resolve(localCurrency, aliases, localCurrency);
+        string firstGlobal = currencies.Count > 0 ? CurrencyNames.Resolve(currencies[0], aliases, localCurrency) : string.Empty;
+        string from = CurrencyNames.Resolve(query.FromCurrency, aliases, localCurrency);
+        string to = CurrencyNames.Resolve(query.ToCurrency, aliases, localCurrency);
 
         string selectedFrom;
         string selectedTo;
@@ -63,26 +63,6 @@ internal static class FallbackConversionSelector
         }
 
         return new FallbackConversionPair(selectedFrom, selectedTo);
-    }
-
-    private static string Resolve(string? currency, AliasManager aliases)
-    {
-        if (string.IsNullOrWhiteSpace(currency))
-        {
-            return string.Empty;
-        }
-
-        string lowered = currency.Trim().ToLowerInvariant();
-        if (aliases.HasAlias(lowered))
-        {
-            string? mapped = aliases.GetAlias(lowered);
-            if (!string.IsNullOrEmpty(mapped))
-            {
-                return mapped.ToLowerInvariant();
-            }
-        }
-
-        return lowered;
     }
 
     private static bool CurrenciesEqual(string left, string right) =>

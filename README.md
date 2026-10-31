@@ -5,16 +5,18 @@
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/advaith3600/Command-Palette-Currency-Converter/total)
 ![GitHub Release](https://img.shields.io/github/v/release/advaith3600/Command-Palette-Currency-Converter)
 
-Convert fiat and crypto currencies without leaving [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview). Type natural language, pin the pairs you care about, and keep live rates on the dock, ready the moment you open your launcher.
+Convert fiat and crypto currencies without leaving [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview). Type the way you talk, in your own language and number format, do the maths in the same line, pin the pairs you care about, and keep live rates on the dock, ready the moment you open your launcher.
 
 ![Mixed currency maths](screenshots/conversion-mixed.png)
 
 ## Why you'll love it
 
 - **Natural language**: codes, symbols, and mixed styles all work (`100 inr to usd`, `$100 to €`, `₽100`)
-- **Fiat and crypto**: convert in either direction with the free default API
-- **Math built in**: evaluate expressions with BODMAS/PEMDAS, mix currencies (`200 aed + 20 usd`), then convert
+- **Speaks your language**: `100 долларов в рублях`, `Rs. 500`, `100美元换人民币`, `100달러를 원으로`, and `$` means pesos in Mexico
+- **Math built in**: evaluate expressions with BODMAS/PEMDAS and mix currencies in one line (`(2k aed + 500 usd) * 2 to eur`)
 - **Shorthands in many languages**: `5k`, `1.5m`, `2 crore`, `5万円`, `3 Mio.`
+- **Any number format**: `1.234,56`, `1,234.56`, `1,00,000`, `١٢٫٥`, `三千五百` and `삼만원` all read correctly, and typos like `12..5` or `5x100` are fixed for you
+- **Fiat and crypto**: convert in either direction with the free default API
 - **Pins + dock**: save conversions and see live amounts on the Command Palette dock
 - **Details at a glance**: unit rate, inverse rate, and when the rate was last updated
 - **Aliases**: rich built-in currency symbols, plus your own custom aliases
@@ -68,7 +70,7 @@ $100 to eur
 100$ to euro
 ```
 
-Conversion titles always show both source and target (for example `2 USD → 1.86 EUR`). Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration.
+Conversion titles always show both source and target (for example `2 USD → 1.86 EUR`). Values use dynamic precision: when an amount is less than 1, the number of non-zero decimal places shown follows your system configuration. If you type a number but Currency Converter can't find a conversion in it, it shows **No conversion found** with an example to try.
 
 On the Command Palette home list, a matching query shows one live conversion (the converted amount, not a loading ellipsis) with the subtitle **Currency Converter**:
 
@@ -135,11 +137,11 @@ Write big amounts the way you'd say them. A unit can touch the number or follow 
 |---|---|
 | English | `k` thousand, `m` / `mn` / `mil` million, `b` / `bn` billion, `t` / `tn` trillion, and the full words |
 | Indian | `lac` / `lakh` (10⁵), `cr` / `crore` (10⁷), `हज़ार`, `लाख`, `करोड़` |
-| Chinese / Japanese | `千` 10³, `万` / `萬` 10⁴, `亿` / `億` 10⁸, `兆` 10¹² |
-| Korean | `천`, `만`, `억`, `조` |
-| German / Italian / Dutch / French | `Tsd.`, `Mio.`, `Mln`, `Mrd.`, `Mld`, `Md`, `Bio.` (10¹²) |
-| Portuguese | `mi`, `bi`, `tri` |
-| Russian / Ukrainian | `тыс.` / `тис.`, `млн`, `млрд`, `трлн` |
+| Chinese / Japanese | `百` 10², `千` 10³, `万` / `萬` 10⁴, `亿` / `億` 10⁸, `兆` 10¹² |
+| Korean | `백`, `천`, `만`, `억`, `조` |
+| German / Italian / Dutch / French | `Tsd.`, `Mio.`, `Mln`, `Mrd.`, `Mld`, `Md`, `Bio.` (10¹²), `Tausend`, `Millionen`, `Milliarden`, `mila`, `milioni`, `miliardi` |
+| Spanish / Portuguese | `mil` (10³), `millones`, `mi`, `bi`, `tri`, `milhões`, `bilhões` (10⁹) |
+| Russian / Ukrainian | `к`, `тыс.` / `тис.`, `тысяч`, `млн`, `миллионов`, `лям`, `млрд`, `миллиардов`, `трлн` |
 | Arabic | `ألف`, `مليون`, `مليار`, `تريليون` |
 
 ```
@@ -148,11 +150,116 @@ Write big amounts the way you'd say them. A unit can touch the number or follow 
 5万円 to usd
 2 crore inr
 3 Mio. € in usd
+5 mil millones de pesos
 ```
 
 All units are active whatever your Windows language is. A Latin or Cyrillic unit only counts when no letter follows it, so currency codes written right after the number still work (`5mxn` is 5 MXN, not 5 million "xn"). `l` stays the Honduran lempira alias.
 
-Two units change meaning with your Windows regional format language. `mil` is a million, or a thousand when that language is Spanish. `bn` is a billion (10⁹), or 10¹² when it is French.
+Two units change meaning with your Windows regional format language. `mil` is a million, or a thousand when that language is Spanish or Portuguese. `bn` is a billion (10⁹), or 10¹² when it is French.
+
+### Your language and region
+
+Currency names and the word for "to" work in many languages, and symbols that several countries share follow your local currency:
+
+| Language | Currencies | "to" |
+|---|---|---|
+| Russian / Ukrainian | `руб`, `рублей`, `₽`, `доллар`, `долларов`, `евро`, `юань`, `грн`, `гривен`, `тенге` | `в`, `во` |
+| Spanish / Portuguese | `dólares`, `pesos`, `reais`, `libras` | `a`, `en`, `para`, `em` |
+| German / Italian / French | `Franken`, `Pfund`, `dollari`, `sterline`, `livres` | `in`, `nach`, `a`, `en` |
+| Hindi / Indian English | `Rs`, `Rs.`, `rupees`, `रुपये`, `रु` | `to`, `in` |
+| Filipino | `piso`, `pesos` | `to`, `in` |
+| Chinese | `元`, `块`, `人民币`, `美元`, `欧元`, `日元`, `港币`, `新台币` | `换`, `兑换`, `换成`, `到`, `是多少` |
+| Japanese | `円`, `ドル`, `米ドル`, `ユーロ`, `人民元`, `ウォン` | `を…に`, `は何…` |
+| Korean | `원`, `달러`, `유로`, `엔`, `위안`, with particles like `달러를`, `원으로` | spaces are enough |
+
+Arrows (`→`, `->`, `=>`) mean "to" in every language.
+
+```
+100 долларов в рублях
+50 reais em dólares
+Rs. 500 to usd
+100美元换人民币
+100ドルは何円
+100달러를 원으로
+```
+
+Shared symbols and words mean your local currency when it uses them, and otherwise keep their usual meaning:
+
+| Typed | Means | Unless your local currency is |
+|---|---|---|
+| `$` | USD | another dollar or a peso (MXN, CAD, AUD, ARS, …) |
+| `dollar`, `bucks` | USD | another dollar (CAD, AUD, SGD, …) |
+| `peso`, `pesos` | MXN | another peso (PHP, ARS, COP, …) |
+| `¥` | JPY | CNY |
+| `元`, `块` | CNY | TWD, HKD or MOP |
+| `kr` | SEK | NOK, DKK or ISK |
+| `Rs`, `rupees` (or `₨`) | INR (or LKR) | another rupee (PKR, NPR, …) |
+
+Setting your own alias for one of these, such as `$` to `eur`, always wins.
+
+On a Russian or Ukrainian keyboard layout, `12ю5` and `12б5` read as 12.5 and 12,5, and a code typed in the wrong layout is recognised: `гыв` is USD, `кги` is RUB, `угк` is EUR. Both are labelled under the result.
+
+### Number formats
+
+Type or paste numbers the way you are used to, whatever your Windows region or keyboard. The converter reads the shape of each number instead of assuming one style:
+
+| You type | Read as | Why |
+|---|---|---|
+| `12,50` or `12.50` | 12.5 | One separator before 1, 2 or 4+ digits is always the decimal |
+| `1.234,56` or `1,234.56` | 1234.56 | With both, the last one is the decimal |
+| `1.234.567` or `1,00,000` | 1234567, 100000 | A repeated separator groups digits, including Indian grouping |
+| `1 234,56`, `1'234.50` | 1234.56, 1234.5 | Spaces and apostrophes only group thousands |
+| `0,500`, `,5` | 0.5 | A leading zero or missing whole part means a decimal |
+| `1,234` or `1.500` | Depends | Could be either, so your region decides and the other reading is listed last |
+
+Only the last row depends on your region. Pick a fixed style in [Settings](#settings) to stop seeing the other reading.
+
+![Ambiguous number with the other reading](screenshots/number-formats.png)
+
+Digits and symbols from other keyboards and pasted text work too: Arabic and Persian digits (`١٢٫٥`, `۱۲`), Indian and Southeast Asian digits such as Devanagari (`१२`), Bengali, Tamil, Thai, Khmer and Myanmar, full-width digits from Chinese, Japanese and Korean input (`１００`), and the `−`, `×` and `÷` signs.
+
+Results are shown in your Windows number format. To paste a result into a spreadsheet or calculator, use **Copy plain number** from the context menu (`Ctrl + K`), which leaves out the thousands separators.
+
+#### Chinese, Japanese and Korean numerals
+
+Numbers written in characters work as well, on their own or mixed with digits:
+
+| You type | Read as |
+|---|---|
+| `三千五百`, `一百二十三`, `两千零五` | 3,500, 123, 2,005 |
+| `一亿五千万`, `三点五万` | 150,000,000, 35,000 |
+| `壹仟贰佰叁拾肆`, `壱万円` (banknote forms) | 1,234, 10,000 JPY |
+| `삼만원`, `만원`, `일억 오천만원` | 30,000, 10,000, 150,000,000 KRW |
+| `3万5千`, `1万5000円`, `1억 5천만원` | 35,000, 15,000, 150,000,000 |
+| `一万五`, `两万三`, `三千五` | 15,000, 23,000, 3,500 (labelled, as speech shortens them) |
+
+A numeral only counts when it isn't the start of an ordinary word, so `三星`, `一起`, `일본` and `구글` stay words.
+
+![Japanese numerals](screenshots/cjk-numerals.png)
+
+#### Typos
+
+Small slips are fixed without a fuss:
+
+| You type | Read as | The slip |
+|---|---|---|
+| `12.`, `100,`, `12,-` | 12, 100, 12 | A separator with nothing after it |
+| `12..5`, `12,,5`, `12·50` | 12.5 | A doubled separator or a middle dot |
+| `5x100`, `3 x 20 usd` | 500, 60 USD | `x` between numbers, read as multiply |
+| `100 usd =`, `100 usd to eur?` | 100 USD | A trailing `=` or `?` |
+| `(10 + 2 usd to eur` | 12 USD | A missing `)` at the end |
+
+When a number is broken but one reading is clearly most likely, the converter uses it and says so under the result, so a wrong guess is easy to spot:
+
+| You type | Read as | The guess |
+|---|---|---|
+| `1.234.56` | 1234.56 | The short last group is the decimals |
+| `1,2345,678` | 12345678 | The odd grouping in the middle is ignored |
+| `1 23 usd` | 123 USD | A stray space inside a number |
+
+![Guessed number with its note](screenshots/typo-guess.png)
+
+Anything with no clear reading, such as `1,2,3`, `12.5.2` or `1.234,567.8`, is never guessed. You get an error that names the number and what is wrong with it.
 
 ## Pins & dock
 
@@ -161,10 +268,10 @@ Pin conversions you check often. They stay at the top of Currency Converter (whe
 ### Pin a conversion
 
 1. Search a conversion, for example `34 btc to aed`.
-2. Open the context menu (`Ctrl + Enter`) and choose **Pin**.
+2. Press `Ctrl + Enter` to **Pin** it (it's also in the context menu, `Ctrl + K`).
 3. Open Currency Converter again with an empty search. Your pins load at the top with live rates.
 
-Pins briefly show **Loading…**, then the live amount (or **Loading failed** if the request fails). **Enter** still copies the converted amount; use the context menu (`Ctrl + Enter`) to **Unpin**.
+Pins briefly show **Loading…**, then the live amount (or **Loading failed** if the request fails). **Enter** still copies the converted amount; press `Ctrl + Enter` to **Unpin**.
 
 ![Pinned conversions](screenshots/pinned-conversions.png)
 
@@ -203,7 +310,7 @@ Open Settings from the Currency Converter command (context menu → Settings).
 | ----------------------------------- | ---------------------------------------------------------- |
 | **Quick Conversion Local Currency** | Base currency for number-only quick conversions            |
 | **Quick Conversion Currencies**     | Comma-separated targets (e.g. `USD, EUR, BTC`)             |
-| **Decimal format separator**        | System default, always dots, or always commas              |
+| **Ambiguous numbers like 1,234**    | How to read a number that fits either style (see [Number formats](#number-formats)): follow your region and also show the other reading, or always treat the dot or the comma as the decimal |
 | **Conversion Cache duration**       | How long rates stay cached, in hours (min `0.5`, max `24`) |
 | **Conversion API**                  | Rate provider (see below)                                  |
 | **Conversion API Key**              | Required for ExchangeRateAPI, CurrencyAPI, or Twelve Data   |

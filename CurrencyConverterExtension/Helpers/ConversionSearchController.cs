@@ -2,6 +2,7 @@ using CurrencyConverterExtension.Converter;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,8 @@ namespace CurrencyConverterExtension.Helpers;
 /// </summary>
 internal sealed partial class ConversionSearchController : IDisposable
 {
+    internal const string AlternativeReadingSubtitle = "Separator read the other way. Pick a fixed separator in settings to hide this";
+
     private readonly SettingsManager _settings;
     private readonly AliasManager _aliasManager;
     private readonly PinnedConversionManager _pinManager;
@@ -120,19 +123,47 @@ internal sealed partial class ConversionSearchController : IDisposable
             QueryParseResult parseResult = QueryParser.Parse(search, _settings.DecimalSeparator);
             IListItem[] items = parseResult.Status switch
             {
+                // Silent on the home list, but here the user came to convert: nudge them.
+                QueryParseStatus.NoMatch when search.Any(char.IsDigit) =>
+                [
+                    new ListItem(new NoOpCommand())
+                    {
+                        Title = "No conversion found",
+                        Subtitle = "Try something like \"100 usd to eur\"",
+                        Icon = IconManager.WarningIcon,
+                    }
+                ],
                 QueryParseStatus.NoMatch => [],
                 QueryParseStatus.InvalidExpression =>
                 [
                     new ListItem(new NoOpCommand())
                     {
                         Title = "Invalid expression provided",
-                        Subtitle = "Please check your mathematical expression",
+                        Subtitle = parseResult.Problem ?? "Please check your mathematical expression",
                         Icon = IconManager.WarningIcon,
                     }
                 ],
                 QueryParseStatus.Success => await _buildItemsAsync(parseResult.Query!.Value, ct).ConfigureAwait(false),
                 _ => [],
             };
+
+            // A guessed number ("1.234.56") says how it was read under every result.
+            if (parseResult.Note is { } note)
+            {
+                foreach (ListItem item in items.OfType<ListItem>().Where(i => string.IsNullOrEmpty(i.Subtitle)))
+                {
+                    ShowMessage(item, note);
+                }
+            }
+
+            // "1,234" or "1.500" with the region as the only clue: offer the other reading last.
+            if (parseResult.Alternative is { } alternative
+                && (await _buildItemsAsync(alternative, ct).ConfigureAwait(false)).FirstOrDefault() is ListItem other)
+            {
+                ShowMessage(other, AlternativeReadingSubtitle);
+                items = [.. items, other];
+            }
+
             _setItems(items);
         }
         catch (OperationCanceledException)
@@ -158,6 +189,20 @@ internal sealed partial class ConversionSearchController : IDisposable
                 _setLoading(false);
                 _raiseItemsChanged(search.Length);
             }
+        }
+    }
+
+    /// <summary>Puts a message in the subtitle and again at the top of the details pane, above the rates.</summary>
+    private static void ShowMessage(ListItem item, string message)
+    {
+        item.Subtitle = message;
+        if (item.Details is Details details)
+        {
+            details.Metadata =
+            [
+                new DetailsElement { Key = "Note", Data = new DetailsLink { Text = message } },
+                .. details.Metadata ?? [],
+            ];
         }
     }
 

@@ -145,10 +145,10 @@
     <value>CurrencyAPI</value>
   </data>
   <data name="decimal_separator" xml:space="preserve">
-    <value>Decimal format separator</value>
+    <value>Ambiguous numbers like 1,234</value>
   </data>
   <data name="decimal_separator_description" xml:space="preserve">
-    <value>Change between dots and commas for decimal separation</value>
+    <value>Numbers like 12,50 or 1.234,56 are always read correctly. This only decides numbers that could go either way, such as 1,234 or 1.500</value>
   </data>
   <data name="default_api" xml:space="preserve">
     <value>Default API</value>
@@ -175,12 +175,12 @@
     <value>When a home-list conversion fails, show Convert "query" with Currency Converter instead of an error. Only applies to queries that look like a conversion.</value>
   </data>
   <data name="use_commas" xml:space="preserve">
-    <value>Always use commas for decimals</value>
+    <value>Comma decimals: 1,234 is just over one</value>
   </data>
   <data name="use_dots" xml:space="preserve">
-    <value>Always use dots for decimals</value>
+    <value>Dot decimals: 1,234 is over a thousand</value>
   </data>
   <data name="use_system_default" xml:space="preserve">
-    <value>Use system default</value>
+    <value>Follow my region and show the other reading too</value>
   </data>
 </root>

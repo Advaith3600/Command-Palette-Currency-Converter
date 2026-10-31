@@ -77,7 +77,9 @@ internal static class ConversionResultItemFactory
                 ],
                 MoreCommands =
                 [
-                    new CommandContextItem(unpinCommand)
+                    // First item is Ctrl+Enter, so pin/unpin keeps that shortcut.
+                    new CommandContextItem(unpinCommand),
+                    CurrencyConverter.CreateCopyPlainNumberItem(outcome.ToFormatted),
                 ],
             };
         }
@@ -95,7 +97,9 @@ internal static class ConversionResultItemFactory
             Tags = outcome.Item.Tags,
             MoreCommands =
             [
-                new CommandContextItem(pinCommand)
+                // First item is Ctrl+Enter, so pin/unpin keeps that shortcut.
+                new CommandContextItem(pinCommand),
+                CurrencyConverter.CreateCopyPlainNumberItem(outcome.ToFormatted),
             ],
         };
     }

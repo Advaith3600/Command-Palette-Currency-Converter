@@ -9,7 +9,8 @@ namespace CurrencyConverterExtension.Converter;
 /// format CLDR compact numbers and never parse them, so the table is maintained here.
 /// Entries follow CLDR short/long compact decimal forms, minus en-IN "L" (default alias
 /// for HNL). Units whose meaning differs by language ("mil", "bn") use the English value
-/// unless the current culture's language overrides it.
+/// unless the current culture's language overrides it. Long words cover the common singular and
+/// plural forms people type ("5 millones", "3 миллиона").
 /// </summary>
 internal static class NumberUnits
 {
@@ -17,9 +18,10 @@ internal static class NumberUnits
         string Text,
         decimal Multiplier,
         bool Standalone,
-        string? OverrideLanguage = null,
+        string[]? OverrideLanguages = null,
         decimal OverrideMultiplier = 0m);
 
+    private const decimal Hundred = 100m;
     private const decimal Thousand = 1_000m;
     private const decimal TenThousand = 10_000m;
     private const decimal Lakh = 100_000m;
@@ -40,9 +42,9 @@ internal static class NumberUnits
         new("m", Million, false),
         new("mn", Million, false),
         new("million", Million, false),
-        new("mil", Million, false, "es", Thousand), // Spanish "mil" is a thousand
+        new("mil", Million, false, ["es", "pt"], Thousand), // Spanish and Portuguese "mil" is a thousand
         new("b", Billion, false),
-        new("bn", Billion, false, "fr", Trillion), // French "Bn" is a long-scale billion
+        new("bn", Billion, false, ["fr"], Trillion), // French "Bn" is a long-scale billion
         new("billion", Billion, false),
         new("t", Trillion, false),
         new("tn", Trillion, false),
@@ -73,6 +75,28 @@ internal static class NumberUnits
         new("mi", Million, false),
         new("bi", Billion, false),
         new("tri", Trillion, false),
+        new("tausend", Thousand, false),
+        new("millionen", Million, false),
+        new("milliarde", Billion, false),
+        new("milliarden", Billion, false),
+        new("mila", Thousand, false),
+        new("milione", Million, false),
+        new("milioni", Million, false),
+        new("miliardo", Billion, false),
+        new("miliardi", Billion, false),
+
+        // Spanish / Portuguese ("5 mil millones" multiplies through to 5e9)
+        new("millón", Million, false),
+        new("millon", Million, false),
+        new("millones", Million, false),
+        new("milhão", Million, false),
+        new("milhao", Million, false),
+        new("milhões", Million, false),
+        new("milhoes", Million, false),
+        new("bilhão", Billion, false), // Brazilian short scale
+        new("bilhao", Billion, false),
+        new("bilhões", Billion, false),
+        new("bilhoes", Billion, false),
 
         // Russian / Ukrainian
         new("тыс", Thousand, false),
@@ -80,6 +104,28 @@ internal static class NumberUnits
         new("млн", Million, false),
         new("млрд", Billion, false),
         new("трлн", Trillion, false),
+        new("к", Thousand, false), // "5к", Cyrillic k
+        new("тысяча", Thousand, false),
+        new("тысячи", Thousand, false),
+        new("тысяч", Thousand, false),
+        new("тисяча", Thousand, false),
+        new("тисячі", Thousand, false),
+        new("тисяч", Thousand, false),
+        new("миллион", Million, false),
+        new("миллиона", Million, false),
+        new("миллионов", Million, false),
+        new("мільйон", Million, false),
+        new("мільйона", Million, false),
+        new("мільйонів", Million, false),
+        new("лям", Million, false), // slang
+        new("ляма", Million, false),
+        new("лямов", Million, false),
+        new("миллиард", Billion, false),
+        new("миллиарда", Billion, false),
+        new("миллиардов", Billion, false),
+        new("мільярд", Billion, false),
+        new("мільярда", Billion, false),
+        new("мільярдів", Billion, false),
 
         // Arabic
         new("ألف", Thousand, false),
@@ -89,6 +135,7 @@ internal static class NumberUnits
         new("تريليون", Trillion, false),
 
         // Chinese / Japanese
+        new("百", Hundred, true),
         new("千", Thousand, true),
         new("万", TenThousand, true),
         new("萬", TenThousand, true),
@@ -97,6 +144,7 @@ internal static class NumberUnits
         new("兆", Trillion, true),
 
         // Korean
+        new("백", Hundred, true),
         new("천", Thousand, true),
         new("만", TenThousand, true),
         new("억", HundredMillion, true),
@@ -134,8 +182,8 @@ internal static class NumberUnits
                 }
             }
 
-            multiplier = unit.OverrideLanguage is { } language
-                && string.Equals(CultureInfo.CurrentCulture.TwoLetterISOLanguageName, language, StringComparison.Ordinal)
+            multiplier = unit.OverrideLanguages is { } languages
+                && languages.Contains(CultureInfo.CurrentCulture.TwoLetterISOLanguageName, StringComparer.Ordinal)
                     ? unit.OverrideMultiplier
                     : unit.Multiplier;
             length = end - index;
