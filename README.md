@@ -5,22 +5,20 @@
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/advaith3600/Command-Palette-Currency-Converter/total)
 ![GitHub Release](https://img.shields.io/github/v/release/advaith3600/Command-Palette-Currency-Converter)
 
-Convert fiat and crypto currencies without leaving [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview). Type natural language, pin the pairs you care about, and keep live rates on the dock — ready the moment you open your launcher.
+Convert fiat and crypto currencies without leaving [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview). Type natural language, pin the pairs you care about, and keep live rates on the dock, ready the moment you open your launcher.
 
-![Home](screenshots/home.png)
-
-![Settings](screenshots/settings.png)
+![Mixed currency maths](screenshots/conversion-mixed.png)
 
 ## Why you'll love it
 
-- **Natural language** — codes, symbols, and mixed styles all work (`100 inr to usd`, `$100 to €`, `₽100`)
-- **Fiat and crypto** — convert in either direction with the free default API
-- **Math built in** — evaluate expressions with BODMAS/PEMDAS, mix currencies (`200 aed + 20 usd`), then convert
-- **Shorthands in many languages** — `5k`, `1.5m`, `2 crore`, `5万円`, `3 Mio.`
-- **Pins + dock** — save conversions and see live amounts on the Command Palette dock
-- **Details at a glance** — unit rate, inverse rate, and when the rate was last updated
-- **Aliases** — rich built-in currency symbols, plus your own custom aliases
-- **Free by default** — unlimited daily rates with no API key required
+- **Natural language**: codes, symbols, and mixed styles all work (`100 inr to usd`, `$100 to €`, `₽100`)
+- **Fiat and crypto**: convert in either direction with the free default API
+- **Math built in**: evaluate expressions with BODMAS/PEMDAS, mix currencies (`200 aed + 20 usd`), then convert
+- **Shorthands in many languages**: `5k`, `1.5m`, `2 crore`, `5万円`, `3 Mio.`
+- **Pins + dock**: save conversions and see live amounts on the Command Palette dock
+- **Details at a glance**: unit rate, inverse rate, and when the rate was last updated
+- **Aliases**: rich built-in currency symbols, plus your own custom aliases
+- **Free by default**: unlimited daily rates with no API key required
 
 ## Installation
 
@@ -74,9 +72,11 @@ Conversion titles always show both source and target (for example `2 USD → 1.8
 
 On the Command Palette home list, a matching query shows one live conversion (the converted amount, not a loading ellipsis) with the subtitle **Currency Converter**:
 
-- `300` or `10*30` — local currency → first Quick Conversion currency
-- `300 cny` — that currency → local (or first Quick Conversion currency if it is already local)
-- `300 cny to eur` — that pair
+- `300` or `10*30`: local currency → first Quick Conversion currency
+- `300 cny`: that currency → local (or first Quick Conversion currency if it is already local)
+- `300 cny to eur`: that pair
+
+![Home list conversion](screenshots/home-list.png)
 
 If local and first Quick Conversion currency are the same, a number-only query still appears as **Convert "300" with Currency Converter** so you can open the extension. Network or API errors on the home list use that same title by default (**Suppress fallback warnings**); turn the setting off to see the error instead. When a live conversion is shown, **Enter** copies the amount and **Ctrl + Enter** opens Currency Converter.
 
@@ -86,6 +86,7 @@ Convert between fiat and cryptocurrencies in either direction. See the [full lis
 
 ```
 1 btc to usd
+0.5 btc to eur
 1000 usd to btc
 ```
 
@@ -93,9 +94,10 @@ Convert between fiat and cryptocurrencies in either direction. See the [full lis
 
 ### Quick conversions
 
-Type just a number to convert from your local currency into the other currencies configured in Settings. You can change both the local currency and the list of target currencies there.
+Type just a number to convert from your local currency into the other currencies configured in Settings. You can change both the local currency and the list of target currencies there. The same amount is also converted the other way, from each of those currencies back into your local currency.
 
 ```
+3600
 102.2
 $1209
 ```
@@ -118,6 +120,7 @@ Add or subtract amounts in different currencies and get the total in one currenc
 
 ```
 200 aed + 20 usd to eur
+(2k aed + 500 usd) * 2 to eur
 $100 - €20
 2 * 10 usd + 5 eur in inr
 ```
@@ -159,7 +162,7 @@ Pin conversions you check often. They stay at the top of Currency Converter (whe
 
 1. Search a conversion, for example `34 btc to aed`.
 2. Open the context menu (`Ctrl + Enter`) and choose **Pin**.
-3. Open Currency Converter again with an empty search — your pins load at the top with live rates.
+3. Open Currency Converter again with an empty search. Your pins load at the top with live rates.
 
 Pins briefly show **Loading…**, then the live amount (or **Loading failed** if the request fails). **Enter** still copies the converted amount; use the context menu (`Ctrl + Enter`) to **Unpin**.
 
@@ -194,6 +197,8 @@ Remove an alias by selecting it and pressing `Ctrl + Enter`, then confirming the
 
 Open Settings from the Currency Converter command (context menu → Settings).
 
+![Settings](screenshots/settings.png)
+
 | Setting                             | What it does                                               |
 | ----------------------------------- | ---------------------------------------------------------- |
 | **Quick Conversion Local Currency** | Base currency for number-only quick conversions            |
@@ -210,12 +215,12 @@ This extension uses third-party APIs for the latest conversion rates:
 
 1. **Default: [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api)**
    - Refreshed every day at midnight.
-   - **Free** and **unlimited** — no API key required.
+   - **Free** and **unlimited**, with no API key required.
    - Supports fiat and cryptocurrency conversions.
    - **Important:** Keep the default API unless you have a strong reason to switch. It updates daily and needs no extra setup.
 
 2. **[Frankfurter](https://frankfurter.dev/)**
-   - Free, open-source exchange rates from central banks — no API key required.
+   - Free, open-source exchange rates from central banks, with no API key required.
    - No request quotas (abuse rate limits may still apply).
    - Does **not** support cryptocurrency conversions.
    - Uses the public Frankfurter [v2 rates API](https://frankfurter.dev/).
